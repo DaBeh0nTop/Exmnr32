@@ -1,0 +1,114 @@
+<div class="wrap">
+  <div class="card">
+    <header class="bar">
+      <h1>Smart Link Grouper — Ultra <span id="maxBadge" class="max-badge">MAX POWER</span></h1>
+      <div class="controls">
+        <div class="search">
+          <input id="search" type="text" placeholder="Search groups…"/>
+          <button class="btn" id="clearSearch" title="Clear search">Clear</button>
+        </div>
+        <button class="btn" id="loadFile" title="Open .txt">Open .txt</button>
+        <button class="btn accent" id="run" title="Group (Ctrl/Cmd+Enter)">Group</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="grid">
+        <section class="input-section drop">
+          <div class="box">
+            <strong>Paste Your TXT</strong>
+            <div class="small" style="margin:6px 0">Format: <span class="pill mono">link:user:pass</span> or <span class="pill mono">link</span> (lines starting with <span class="mono">#</span> are ignored)</div>
+            <textarea id="input" placeholder="accounts.spotify.com/login:alice:pass
+netflix.com/login:bob:secret
+# ignored
+youtu.be/watch?v=123:foo:bar"></textarea>
+          </div>
+          <details class="box" style="margin-top:14px">
+            <summary><strong>Alias Rules</strong> <span class="small">(hostnames only)</span></summary>
+            <div class="small" style="margin:8px 0 4px">Format: <span class="mono">canonical => alias1 | alias2</span></div>
+            <textarea id="aliases" class="mono" style="min-height:130px"></textarea>
+          </details>
+        </section>
+
+        <section class="options-section">
+          <div class="box">
+            <strong>Grouping & Cleaning</strong>
+            <div class="controls" style="margin-top:10px;flex-direction:column;align-items:flex-start">
+              <select id="mode" class="chip">
+                <option value="domain">Group by Domain</option>
+                <option value="url">Group by Full URL</option>
+              </select>
+              <label class="chip"><input id="merge" type="checkbox" checked> Merge subdomains (m.site.com → site.com)</label>
+              <label class="chip"><input id="stripwww" type="checkbox" checked> Strip “www” prefix</label>
+              <label class="chip"><input id="trimlink" type="checkbox"> Trim downloads to <span class="mono">user:pass</span></label>
+              <label class="chip"><input id="maxpower" type="checkbox" checked> Max Power (faster batches)</label>
+            </div>
+          </div>
+
+          <div class="box" style="margin-top:14px">
+            <strong>Fuzzy Merge (Typos)</strong>
+            <div class="controls" style="margin-top:10px;flex-direction:column;align-items:flex-start">
+              <label class="chip slider"><span>Enable</span><input id="fuzzy" type="checkbox" checked></label>
+              <label class="chip slider" style="margin-top:8px">
+                <span class="small">Similarity</span>
+                <input id="thresh" type="range" min="70" max="95" value="82">
+                <span class="small mono" id="threshVal">0.82</span>
+              </label>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <section class="box">
+        <strong>Summary</strong>
+        <div class="right" style="margin:8px 0 0">
+          <span class="pill">Lines: <b id="rawCount">0</b></span>
+          <span class="pill">Parsed pairs: <b id="pairsCount">0</b></span>
+          <span class="pill">Groups: <b id="groupsCount">0</b></span>
+          <span class="pill">Unidentified: <b id="unidCount">0</b></span>
+          <span class="pill">No credentials: <b id="noCredCount">0</b></span>
+          <span class="pill">Bad format: <b id="badFmtCount">0</b></span>
+        </div>
+        <div class="vwrap" id="vwrap">
+          <div class="header"><div class="row"><div>Group</div><div>Count</div><div>Share</div><div>Download</div></div></div>
+          <div id="spacerTop"></div>
+          <div id="rows"></div>
+          <div id="spacerBot"></div>
+        </div>
+        <div class="right" style="margin-top:12px">
+          <button class="btn" id="dlCSV" disabled>summary.csv</button>
+          <button class="btn" id="dlJSON" disabled>summary.json</button>
+          <button class="btn" id="dlUnid" disabled>unidentified.txt</button>
+          <button class="btn" id="dlNoCred" disabled>no_credentials.txt</button>
+          <button class="btn" id="dlBadFmt" disabled>bad_format.txt</button>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer small">
+      <div>Tip: For huge files, try grouping without fuzzy first, then re-run with fuzzy.</div>
+      <div>Local only • Web Worker • Virtual list • Stream loader.</div>
+    </footer>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".txt" hidden />
+
+<div id="loader" class="loader">
+  <div class="loader-card">
+    <div class="loader-top">
+      <div class="spinner"></div>
+      <div>
+        <div><strong id="loadTitle">Processing…</strong></div>
+        <div id="loadLabel" class="small">Initializing</div>
+      </div>
+    </div>
+    <div class="loadbar"><div id="loadFill" class="loadfill"></div></div>
+    <div class="loadgrid mono">
+      <div id="loadMetricLeft">Lines: <span id="loadLines">0 / 0</span></div>
+      <div>Percent: <span id="loadPct">0%</span></div>
+      <div>Elapsed: <span id="loadElapsed">00:00</span></div>
+      <div>ETA: <span id="loadEta">—</span></div>
+    </div>
+  </div>
+</div>

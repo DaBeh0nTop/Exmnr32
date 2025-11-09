@@ -1,114 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Smart Link Grouper — Ultra (MAX POWER, Fixed Parsing)</title>
+<style>
+:root{
+  --bg:#0a100b; --panel:#101712; --ink:#f2f6f1; --muted:#a7b8a7; --line:#1b2a1c;
+  --g1:#90ffb6; --g2:#6df0a5; --g3:#3bdd8d; --g4:#16c172; --accent:#b7ffcf;
+  --r-lg:16px; --r-sm:10px; --gap:16px;
+  --shadow:0 12px 32px rgba(0,0,0,.5), inset 0 0 0 1px #000;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+:root{color-scheme:dark}
+body{
+  margin:0; font:500 15px/1.5 Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,Arial,sans-serif; color:var(--ink);
+  background:
+    radial-gradient(1000px 520px at 20% -20%, #11aa5530 0%, transparent 60%),
+    radial-gradient(900px 480px at 120% 0%, #0c7a4630 0%, transparent 55%),
+    linear-gradient(180deg,#0a120c,#081009 38%, #070e08 100%);
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+}
+.wrap{max-width:1380px;margin:22px auto;padding:0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-lg);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:var(--shadow)}
+.bar{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);min-height:54px}
+h1{margin:0;font-weight:800;letter-spacing:.2px;font-size:clamp(18px,2.2vw,22px)}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{cursor:pointer;border:1px solid var(--line);background:#0f1a13;border-radius:var(--r-sm);padding:10px 12px;transition:border-color .15s,transform .05s,box-shadow .15s,background-color .15s;user-select:none}
+.btn:hover{border-color:#214e33;box-shadow:0 0 0 3px #1ab76d20}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.accent{background:var(--g2);color:#04170c;border-color:#70e6ab;font-weight:700}
+.search{display:flex;gap:8px;align-items:center}
+.search input{background:#0b110d;border:1px solid #163021;border-radius:999px;padding:10px 12px;min-width:clamp(160px,28vw,260px);color:var(--ink)}
+.kbd{padding:2px 6px;border:1px solid #2a3c2e;border-bottom-width:2px;border-radius:6px;background:#0e1812;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#dfe9e2}
+.content{display:grid;gap:var(--gap);padding:16px}
+.grid{display:grid;grid-template-columns:minmax(420px,1.6fr) minmax(300px,1fr);gap:var(--gap)}
+@media (max-width:1000px){.grid{grid-template-columns:1fr}}
+.box{background:#0c140f;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px}
+strong{font-weight:700}
+.small{color:var(--muted);font-size:12px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid #2a3c2e;background:#0f1a13;font-size:12px}
+textarea, input:not([type="checkbox"]):not([type="range"]), select{font:inherit;color:inherit}
+textarea{width:100%;min-height:200px;background:#0b110d;border:1px solid #163021;border-radius:var(--r-sm);padding:12px;resize:vertical;margin-top:8px;transition:border-color .2s,box-shadow .2s;color:var(--ink)}
+textarea:focus, input:focus, select:focus{border-color:#27d07b;outline:none;box-shadow:0 0 0 3px #27d07b26}
+:where(.chip, select){padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#0f1a13;display:flex;gap:8px;align-items:center;cursor:pointer}
+.slider{display:flex;align-items:center;gap:8px}
+input[type="range"]{accent-color:#27d07b;width:110px}
+.vwrap{position:relative;border:1px solid var(--line);border-radius:var(--r-sm);overflow:auto;height:clamp(300px,54vh,560px);background:#0b120d;margin-top:10px;overscroll-behavior:contain}
+.row{display:grid;grid-template-columns:1fr 92px 150px 120px;gap:8px;align-items:center;height:48px;border-bottom:1px dashed #1a2b1c;padding:0 12px;font-size:14px}
+.header .row{height:40px;font-weight:700;color:#caffdf;background:#0e1812;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.right{display:flex;gap:8px;flex-wrap:wrap}
+.barline{height:6px;border-radius:6px;background:#0b1b12;overflow:hidden}
+.fill{height:100%;background:linear-gradient(90deg,var(--g1),var(--g2),var(--g3),var(--g4))}
+.footer{padding:12px 16px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.loader{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,10,7,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:9999}
+.loader.show{display:grid}
+.loader-card{width:min(520px,92vw);background:var(--panel);border:1px solid #27d07b;border-radius:16px;padding:16px;color:var(--ink);box-shadow:0 15px 40px rgba(0,0,0,.6)}
+.loader-top{display:flex;gap:12px;align-items:center}
+.spinner{width:30px;height:30px;border-radius:50%;border:4px solid #163021;border-top-color:#5effb1;animation:spin 1s cubic-bezier(.5,.2,.5,.8) infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loadbar{margin-top:12px;height:10px;border-radius:10px;background:#0b1b12;overflow:hidden}
+.loadfill{height:100%;width:0%;background:linear-gradient(90deg,var(--g1),var(--g2),var(--g3),var(--g4));transition:width .12s linear}
+.loadgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.drop{position:relative}
+.drop::after{content:"Drop .txt to load";position:absolute;inset:0;border:2px dashed #2a3c2e;border-radius:14px;display:none;place-items:center;color:#dfe9e2;background:#0b110dcc}
+.drop.dragging::after{display:grid}
+.max-badge{margin-left:6px;padding:2px 8px;border-radius:999px;background:#0d1f15;border:1px solid #244b34;color:#aef3cb;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.names-only{margin-left:6px;padding:2px 8px;border-radius:999px;background:#0e1812;border:1px solid #284532;color:#cdf1e0;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+ul.bullets{margin:10px 0 0 18px;padding:0}
+ul.bullets li{margin:4px 0}
+:focus-visible{outline:2px solid #27d07b;outline-offset:2px}
+@media (pointer:coarse){.btn{padding:12px 14px}.row{height:52px}input,textarea{font-size:16px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation-duration:.001ms!important;animation-iteration-count:1!important}}
+</style>
+</head>
+<body>
 <div class="wrap">
-  <div class="card">
-    <header class="bar">
-      <h1>Smart Link Grouper — Ultra <span id="maxBadge" class="max-badge">MAX POWER</span></h1>
-      <div class="controls">
-        <div class="search">
-          <input id="search" type="text" placeholder="Search groups…"/>
-          <button class="btn" id="clearSearch" title="Clear search">Clear</button>
-        </div>
-        <button class="btn" id="loadFile" title="Open .txt">Open .txt</button>
-        <button class="btn accent" id="run" title="Group (Ctrl/Cmd+Enter)">Group</button>
-      </div>
-    </header>
+  <div class="card">
+    <header class="bar">
+      <h1>Smart Link Grouper — Ultra
+        <span id="maxBadge" class="max-badge" style="display:none">MAX POWER</span>
+        <button id="toggleNames" class="names-only" title="Toggle names-only view">Names Only</button>
+      </h1>
+      <div class="controls">
+        <div class="search">
+          <input id="search" type="text" placeholder="Search groups…"/>
+          <button class="btn" id="clearSearch" title="Clear search">Clear</button>
+        </div>
+        <button class="btn" id="loadFile" title="Open .txt">Open .txt</button>
+        <button class="btn accent" id="run" title="Group (Ctrl/Cmd+Enter)">Group</button>
+      </div>
+    </header>
 
-    <main class="content">
-      <div class="grid">
-        <section class="input-section drop">
-          <div class="box">
-            <strong>Paste Your TXT</strong>
-            <div class="small" style="margin:6px 0">Format: <span class="pill mono">link:user:pass</span> or <span class="pill mono">link</span> (lines starting with <span class="mono">#</span> are ignored)</div>
-            <textarea id="input" placeholder="accounts.spotify.com/login:alice:pass
+    <main class="content">
+      <div class="grid">
+        <section class="input-section drop">
+          <div class="box">
+            <strong>Paste Your TXT</strong>
+            <div class="small" style="margin:6px 0">
+              Format: <span class="pill mono">link:user:pass</span> or <span class="pill mono">link</span>
+              (lines starting with <span class="mono">#</span> are ignored)
+            </div>
+            <textarea id="input" placeholder="accounts.spotify.com/login:alice:pass
 netflix.com/login:bob:secret
 # ignored
 youtu.be/watch?v=123:foo:bar"></textarea>
-          </div>
-          <details class="box" style="margin-top:14px">
-            <summary><strong>Alias Rules</strong> <span class="small">(hostnames only)</span></summary>
-            <div class="small" style="margin:8px 0 4px">Format: <span class="mono">canonical => alias1 | alias2</span></div>
-            <textarea id="aliases" class="mono" style="min-height:130px"></textarea>
-          </details>
-        </section>
+          </div>
 
-        <section class="options-section">
-          <div class="box">
-            <strong>Grouping & Cleaning</strong>
-            <div class="controls" style="margin-top:10px;flex-direction:column;align-items:flex-start">
-              <select id="mode" class="chip">
-                <option value="domain">Group by Domain</option>
-                <option value="url">Group by Full URL</option>
-              </select>
-              <label class="chip"><input id="merge" type="checkbox" checked> Merge subdomains (m.site.com → site.com)</label>
-              <label class="chip"><input id="stripwww" type="checkbox" checked> Strip “www” prefix</label>
-              <label class="chip"><input id="trimlink" type="checkbox"> Trim downloads to <span class="mono">user:pass</span></label>
-              <label class="chip"><input id="maxpower" type="checkbox" checked> Max Power (faster batches)</label>
-            </div>
-          </div>
+          <details class="box" style="margin-top:14px">
+            <summary><strong>Alias Rules</strong> <span class="small">(hostnames only)</span></summary>
+            <div class="small" style="margin:8px 0 4px">Format: <span class="mono">canonical => alias1 | alias2</span></div>
+            <textarea id="aliases" class="mono" style="min-height:130px"></textarea>
+          </details>
+        </section>
 
-          <div class="box" style="margin-top:14px">
-            <strong>Fuzzy Merge (Typos)</strong>
-            <div class="controls" style="margin-top:10px;flex-direction:column;align-items:flex-start">
-              <label class="chip slider"><span>Enable</span><input id="fuzzy" type="checkbox" checked></label>
-              <label class="chip slider" style="margin-top:8px">
-                <span class="small">Similarity</span>
-                <input id="thresh" type="range" min="70" max="95" value="82">
-                <span class="small mono" id="threshVal">0.82</span>
-              </label>
-            </div>
-          </div>
-        </section>
-      </div>
+        <section class="options-section">
+          <div class="box">
+            <strong>Grouping & Cleaning</strong>
+            <div class="controls" style="margin-top:10px;flex-direction:column;align-items:flex-start">
+              <select id="mode" class="chip">
+                <option value="domain">Group by Domain</option>
+                <option value="url">Group by Full URL</option>
+              </select>
+              <label class="chip"><input id="merge" type="checkbox" checked> Merge subdomains (m.site.com → site.com)</label>
+              <label class="chip"><input id="stripwww" type="checkbox" checked> Strip “www” prefix</label>
+              <label class="chip"><input id="trimlink" type="checkbox"> Trim downloads to <span class="mono">user:pass</span></label>
+              <label class="chip"><input id="maxpower" type="checkbox" checked> Max Power (faster batches)</label>
+            </div>
+          </div>
 
-      <section class="box">
-        <strong>Summary</strong>
-        <div class="right" style="margin:8px 0 0">
-          <span class="pill">Lines: <b id="rawCount">0</b></span>
-          <span class="pill">Parsed pairs: <b id="pairsCount">0</b></span>
-          <span class="pill">Groups: <b id="groupsCount">0</b></span>
-          <span class="pill">Unidentified: <b id="unidCount">0</b></span>
-          <span class="pill">No credentials: <b id="noCredCount">0</b></span>
-          <span class="pill">Bad format: <b id="badFmtCount">0</b></span>
-        </div>
-        <div class="vwrap" id="vwrap">
-          <div class="header"><div class="row"><div>Group</div><div>Count</div><div>Share</div><div>Download</div></div></div>
-          <div id="spacerTop"></div>
-          <div id="rows"></div>
-          <div id="spacerBot"></div>
-        </div>
-        <div class="right" style="margin-top:12px">
-          <button class="btn" id="dlCSV" disabled>summary.csv</button>
-          <button class="btn" id="dlJSON" disabled>summary.json</button>
-          <button class="btn" id="dlUnid" disabled>unidentified.txt</button>
-          <button class="btn" id="dlNoCred" disabled>no_credentials.txt</button>
-          <button class="btn" id="dlBadFmt" disabled>bad_format.txt</button>
-        </div>
-      </section>
-    </main>
+          <div class="box" style="margin-top:14px">
+            <strong>Fuzzy Merge (Typos)</strong>
+            <div class="controls" style="margin-top:10px;flex-direction:column;align-items:flex-start">
+              <label class="chip slider"><span>Enable</span><input id="fuzzy" type="checkbox" checked></label>
+              <label class="chip slider" style="margin-top:8px">
+                <span class="small">Similarity</span>
+                <input id="thresh" type="range" min="70" max="95" value="82">
+                <span class="small mono" id="threshVal">0.82</span>
+              </label>
+            </div>
+          </div>
+        </section>
 
-    <footer class="footer small">
-      <div>Tip: For huge files, try grouping without fuzzy first, then re-run with fuzzy.</div>
-      <div>Local only • Web Worker • Virtual list • Stream loader.</div>
-    </footer>
-  </div>
+        <section class="box" style="grid-column:1 / -1">
+          <strong>Summary</strong>
+          <div class="right" style="margin:8px 0 0">
+            <span class="pill">Lines: <b id="rawCount">0</b></span>
+            <span class="pill">Parsed pairs: <b id="pairsCount">0</b></span>
+            <span class="pill">Groups: <b id="groupsCount">0</b></span>
+            <span class="pill">Unidentified: <b id="unidCount">0</b></span>
+            <span class="pill">No credentials: <b id="noCredCount">0</b></span>
+            <span class="pill">Bad format: <b id="badFmtCount">0</b></span>
+          </div>
+
+          <div class="vwrap" id="vwrap">
+            <div class="header">
+              <div class="row">
+                <div>Group</div><div>Count</div><div>Share</div><div>Download</div>
+              </div>
+            </div>
+            <div id="spacerTop"></div>
+            <div id="rows"></div>
+            <div id="spacerBot"></div>
+          </div>
+
+          <div class="right" style="margin-top:12px">
+            <button class="btn" id="dlCSV" disabled>summary.csv</button>
+            <button class="btn" id="dlJSON" disabled>summary.json</button>
+            <button class="btn" id="dlUnid" disabled>unidentified.txt</button>
+            <button class="btn" id="dlNoCred" disabled>no_credentials.txt</button>
+            <button class="btn" id="dlBadFmt" disabled>bad_format.txt</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="footer small">
+      <div>Tip: For huge files, try grouping without fuzzy first, then re-run with fuzzy.</div>
+      <div>Local only • Web Worker • Virtual list • Stream loader.</div>
+    </footer>
+  </div>
 </div>
 
 <input type="file" id="fileInput" accept=".txt" hidden />
 
 <div id="loader" class="loader">
-  <div class="loader-card">
-    <div class="loader-top">
-      <div class="spinner"></div>
-      <div>
-        <div><strong id="loadTitle">Processing…</strong></div>
-        <div id="loadLabel" class="small">Initializing</div>
-      </div>
-    </div>
-    <div class="loadbar"><div id="loadFill" class="loadfill"></div></div>
-    <div class="loadgrid mono">
-      <div id="loadMetricLeft">Lines: <span id="loadLines">0 / 0</span></div>
-      <div>Percent: <span id="loadPct">0%</span></div>
-      <div>Elapsed: <span id="loadElapsed">00:00</span></div>
-      <div>ETA: <span id="loadEta">—</span></div>
-    </div>
-  </div>
+  <div class="loader-card">
+    <div class="loader-top">
+      <div class="spinner"></div>
+      <div>
+        <div><strong id="loadTitle">Processing…</strong></div>
+        <div id="loadLabel" class="small">Initializing</div>
+      </div>
+    </div>
+    <div class="loadbar"><div id="loadFill" class="loadfill"></div></div>
+    <div class="loadgrid mono">
+      <div id="loadMetricLeft">Lines: <span id="loadLines">0 / 0</span></div>
+      <div>Percent: <span id="loadPct">0%</span></div>
+      <div>Elapsed: <span id="loadElapsed">00:00</span></div>
+      <div>ETA: <span id="loadEta">—</span></div>
+    </div>
+  </div>
 </div>
+
+<script>
+/* ============ Web Worker (parsing + grouping) ============ */
+const workerSrc = `
+const URL_RX = /https?:\\/\\/[\\S]+?(?=:[^\\/\\s]|$)/i; // stop URL before ":user"
+const DOMAIN_ANYWHERE_RX = /\\b([a-z0-9-]+(?:\\.[a-z0-9-]+)+)(?:\\/[\\S^:]*)?/i;
+const TRAIL=/[),.;:!?}\\]>’"'”]+$/;
+const MULTI_TLD=new Set(["co.uk","org.uk","ac.uk","gov.uk","co.jp","ne.jp","or.jp","com.au","net.au","org.au","com.br","com.ph","net.ph","org.ph"]);
+
+function parseAliases(text){
+  const lines=(text||"").split("\\n").map(s=>s.trim()).filter(Boolean);
+  const map=new Map();
+  for(const line of lines){
+    const m=line.split("=>");
+    if(m.length<2) continue;
+    const canon=m[0].trim().toLowerCase();
+    const alts=m[1].split("|").map(s=>s.trim().toLowerCase()).filter(Boolean);
+    for(const a of alts) map.set(a, canon);
+    map.set(canon, canon);
+  }
+  return map;
+}
+
+function canonicalHost(host,{stripWww=true,mergeSub=true,aliasMap=null}={}){
+  host=(host||"").toLowerCase().replace(/\\.$/,"");
+  host=host.replace(/:\\d+$/,"");
+  try{ host=host.normalize("NFKC"); }catch(_){}
+  if(stripWww && host.startsWith("www.")) host=host.slice(4);
+  if(aliasMap && aliasMap.has(host)) host=aliasMap.get(host);
+  if(!mergeSub) return host;
+  const p=host.split(".").filter(Boolean);
+  if(p.length<=2) return host;
+  const l2=p.slice(-2).join("."), l3=p.slice(-3).join(".");
+  if(MULTI_TLD.has(l2) && p.length>=3) return p.slice(-3).join(".");
+  if(MULTI_TLD.has(l3) && p.length>=4) return p.slice(-4).join(".");
+  return p.slice(-2).join(".");
+}
+
+function findUrlOrHostAnywhere(line){
+  const m1=line.match(URL_RX);
+  if(m1) return m1[0].replace(TRAIL,"");
+  const m2=line.match(DOMAIN_ANYWHERE_RX);
+  if(m2){
+    const host=m2[1];
+    const after=line.slice(m2.index+m2[0].length);
+    const path=(/^(\\/[\\S^:]*)/.exec(after)||["",""])[1];
+    return ("https://"+host+path).replace(TRAIL,"");
+  }
+  return null;
+}
+
+function cleanUrlSeparator(u){
+  if(!u) return u;
+  // strip trailing colon if it's a separator before creds (not port or path)
+  if(/:[^\\/\\s]$/.test(u)) u=u.slice(0,-1);
+  return u.replace(TRAIL,"");
+}
+
+function stripWeird(s){
+  return (s||"")
+    .replace(/[\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u206F]/g,"")
+    .replace(/[\\u0000-\\u001F]/g,"")
+    .trim();
+}
+
+function extractLine(line){
+  const url0=findUrlOrHostAnywhere(line);
+  if(!url0) return {url:null,user:null,pass:null,raw:line};
+  const url=cleanUrlSeparator(url0);
+  const token=url.replace(/^https?:\\/\\//i,"");
+  const idxFull=line.indexOf(url);
+  const idxTok=line.indexOf(token);
+  const idx = idxFull>=0 ? idxFull : (idxTok>=0 ? idxTok : 0);
+  const skipLen = idxFull>=0 ? url.length : (idxTok>=0 ? token.length : url.length);
+  let tail=line.slice(idx+skipLen);
+  tail = tail.replace(/^[\\s:]+/,"");
+  tail = stripWeird(tail);
+  if(!tail) return {url,user:null,pass:null,raw:line};
+
+  let user=null, pass=null;
+  const c=tail.indexOf(":");
+  if(c>=0){
+    user=stripWeird(tail.slice(0,c));
+    pass=stripWeird(tail.slice(c+1));
+  }else{
+    const parts=tail.split(/\\s+/).filter(Boolean);
+    if(parts.length===1) user=parts[0];
+    else if(parts.length>=2){ user=parts[0]; pass=parts.slice(1).join(" "); }
+  }
+  if(user==="") user=null;
+  if(pass==="") pass=null;
+  return {url,user,pass,raw:line};
+}
+
+function normCore(host){
+  host=(host||"").toLowerCase().replace(/^www\\./,"");
+  host=host.replace(/\\b(accounts|account|secure|login|auth|id|m|mobile|www2|app)\\./g,"");
+  const parts=host.split(".");
+  if(parts.length>=2) parts.pop();
+  return parts.join(".");
+}
+
+function dice(a,b){
+  a=a||""; b=b||"";
+  if(!a||!b) return 0;
+  if(a===b) return 1;
+  const grams=s=>{const z=[]; for(let i=0;i<s.length-1;i++) z.push(s.slice(i,i+1+1)); return z;};
+  const A=grams(a), B=grams(b), map=new Map();
+  for(const g of A) map.set(g,(map.get(g)||0)+1);
+  let inter=0;
+  for(const g of B){ const k=map.get(g)||0; if(k>0){ inter++; map.set(g,k-1);} }
+  return (2*inter)/(A.length+B.length||1);
+}
+const blockKey = core => (core||"").slice(0,3);
+
+let STORE=null;
+
+self.onmessage=async (e)=>{
+  const {type,payload}=e.data;
+  if(type==="process"){
+    const {text,opts,fuzzy,thresh,maxpower}=payload;
+    const aliasMap=parseAliases(opts.aliases);
+    const groups=new Map(), meta=new Map();
+    const unidentified=[], noCreds=[], badFmt=[];
+    let rawCount=0;
+
+    const lines=(text||"").split(/\\r?\\n/);
+    const N=lines.length;
+    const big=N>250000, huge=N>600000;
+    const chunk=maxpower ? (huge?24000:(big?16000:9000)) : 6000;
+    let tick=0, tickEvery = maxpower ? 4 : 2;
+
+    for(let i=0;i<N;i+=chunk){
+      for(let j=i;j<Math.min(i+chunk,N);j++){
+        let line=lines[j].trim();
+        if(!line || line.startsWith("#")) continue;
+        rawCount++;
+        const {url,user,pass}=extractLine(line);
+        if(!url){ unidentified.push(line); continue; }
+        try{
+          const u=new URL(url);
+          let key;
+          if(opts.mode==="url"){
+            let clean=url.replace(TRAIL,"");
+            if(clean.endsWith("/")) clean=clean.slice(0,-1);
+            key=clean;
+            meta.set(key,{host:u.hostname, core:normCore(u.hostname)});
+          }else{
+            const host=canonicalHost(u.hostname,{stripWww:opts.stripWww,mergeSub:opts.mergeSub,aliasMap});
+            key=host;
+            meta.set(key,{host, core:normCore(host)});
+          }
+          if(!user || !pass){ noCreds.push(line); continue; }
+          const pair=\`\${String(user).trim()}:\${String(pass).trim()}\`;
+          if(!groups.has(key)) groups.set(key,new Map());
+          const pm=groups.get(key);
+          if(!pm.has(pair)) pm.set(pair,new Set());
+          pm.get(pair).add(url);
+        }catch(_){
+          badFmt.push(line);
+        }
+      }
+      if((tick++ % tickEvery)===0) postMessage({type:"progress",payload:{done:Math.min(i+chunk,N),total:N}});
+      await new Promise(r=>setTimeout(r,0));
+    }
+
+    if(fuzzy && opts.mode==="domain"){
+      const keys=[...groups.keys()], byBlock=new Map();
+      for(const k of keys){
+        const core=meta.get(k)?.core||k;
+        const b=blockKey(core);
+        if(!byBlock.has(b)) byBlock.set(b,[]);
+        byBlock.get(b).push(k);
+      }
+      const parent=new Map(keys.map(k=>[k,k]));
+      const find=k=>parent.get(k)===k?k:parent.set(k,find(parent.get(k))).get(k);
+      const unite=(a,b)=>{ a=find(a); b=find(b); if(a!==b) parent.set(a,b); };
+
+      for(const arr of byBlock.values()){
+        arr.sort((a,b)=>(groups.get(b)?.size||0)-(groups.get(a)?.size||0));
+        for(let i=0;i<arr.length;i++){
+          const a=arr[i], ca=meta.get(a)?.core||a;
+          for(let j=i+1;j<arr.length;j++){
+            const b=arr[j], cb=meta.get(b)?.core||b;
+            if(Math.abs(ca.length-cb.length)>4) continue;
+            if(dice(ca,cb)>=thresh) unite(a,b);
+          }
+        }
+      }
+      const merged=new Map();
+      for(const k of keys){
+        const r=find(k);
+        if(!merged.has(r)) merged.set(r,new Map());
+        const dst=merged.get(r), src=groups.get(k);
+        for(const [pair,urls] of src.entries()){
+          if(!dst.has(pair)) dst.set(pair,new Set());
+          const d=dst.get(pair); for(const u of urls) d.add(u);
+        }
+      }
+      const repr=new Map();
+      for(const k of keys){
+        const r=find(k);
+        const cur=repr.get(r);
+        if(!cur || k.length<cur.length) repr.set(r,k);
+      }
+      groups.clear();
+      for(const [r,mapPairs] of merged.entries()){
+        const name=repr.get(r)||r;
+        groups.set(name,mapPairs);
+      }
+    }
+
+    const rows=[...groups.entries()].map(([key,pm])=>({key,count:pm.size}))
+      .sort((a,b)=> b.count-a.count || a.key.localeCompare(b.key));
+    const totalPairs=rows.reduce((a,r)=>a+r.count,0);
+
+    STORE={groups,unidentified,noCreds,badFmt,rows,totalPairs,rawCount};
+    postMessage({type:"done",payload:{
+      rows,totalPairs,rawCount,
+      unidentifiedCount:unidentified.length,
+      noCredCount:noCreds.length,
+      badFmtCount:badFmt.length
+    }});
+  }
+  else if(type==="downloadGroup"){
+    const {group,trim}=payload;
+    if(!STORE || !STORE.groups.has(group)){ postMessage({type:"blob",payload:{name:"group.txt",url:null}}); return; }
+    const pm=STORE.groups.get(group), out=[];
+    for(const [pair,urls] of pm.entries()){
+      if(trim) out.push(pair);
+      else for(const u of urls) out.push(\`\${u}:\${pair}\`);
+    }
+    out.sort();
+    const blob=new Blob([out.join("\\n")+"\\n"],{type:"text/plain"});
+    const url=URL.createObjectURL(blob);
+    postMessage({type:"blob",payload:{name:group.replace(/[^a-zA-Z0-9._-]+/g,"_")+".txt",url}});
+  }
+  else if(type==="downloadBucket"){
+    if(!STORE) return;
+    const arr=STORE[payload.bucket]||[];
+    const blob=new Blob([arr.join("\\n")+"\\n"],{type:"text/plain"});
+    const url=URL.createObjectURL(blob);
+    postMessage({type:"blob",payload:{name:payload.bucket+".txt",url}});
+  }
+  else if(type==="downloadSummary"){
+    if(!STORE) return;
+    const rows=STORE.rows;
+    if(payload.format==="csv"){
+      const esc=s=>"\\"" + String(s).replace(/"/g,'""') + "\\"";
+      const csv=["group,count,percent"].concat(
+        rows.map(r=> esc(r.key)+","+r.count+","+(STORE.totalPairs?((r.count/STORE.totalPairs*100).toFixed(2)):"0.00"))
+      ).join("\\n");
+      const blob=new Blob([csv],{type:"text/csv"});
+      const url=URL.createObjectURL(blob);
+      postMessage({type:"blob",payload:{name:"summary.csv",url}});
+    }else{
+      const json=JSON.stringify({parsed_pairs:STORE.totalPairs,raw_lines:STORE.rawCount,groups:rows},null,2);
+      const blob=new Blob([json],{type:"application/json"});
+      const url=URL.createObjectURL(blob);
+      postMessage({type:"blob",payload:{name:"summary.json",url}});
+    }
+  }
+};
+`;
+
+/* ============ Main (UI) ============ */
+const worker = new Worker(URL.createObjectURL(new Blob([workerSrc], {type:"application/javascript"})));
+const $ = s => document.querySelector(s);
+
+const input = $("#input"), mode = $("#mode"), merge = $("#merge"),
+      stripww = $("#stripwww"), trimlnk = $("#trimlink"), maxpw = $("#maxpower"),
+      fuzzy = $("#fuzzy"), thresh = $("#thresh"), threshVal = $("#threshVal"),
+      aliasesTA = $("#aliases");
+
+const rawCountEl = $("#rawCount"), pairsCountEl = $("#pairsCount"),
+      groupsCountEl= $("#groupsCount"), unidCountEl = $("#unidCount"),
+      noCredCountEl= $("#noCredCount"), badFmtCountEl= $("#badFmtCount");
+
+const dlCSV = $("#dlCSV"), dlJSON = $("#dlJSON"), dlUnid = $("#dlUnid"),
+      dlNoCred= $("#dlNoCred"), dlBadFmt= $("#dlBadFmt");
+
+const vwrap = $("#vwrap"), rowsEl = $("#rows"),
+      spacerTop= $("#spacerTop"), spacerBot= $("#spacerBot"),
+      maxBadge = $("#maxBadge"), toggleNames = $("#toggleNames");
+
+const ROW_H=48, VBUF=20;
+let viewRows=[], fullRows=[], totalPairs=0, namesOnly=false;
+
+/* defaults */
+const DEFAULT_ALIASES =
+`spotify.com => accounts.spotify.com | open.spotify.com | www.spotify.com
+netflix.com => www.netflix.com | m.netflix.com
+nike.com => www.nike.com | secure-store.nike.com
+disneyplus.com => www.disneyplus.com
+paypal.com => www.paypal.com
+youtube.com => youtu.be | m.youtube.com | www.youtube.com
+twitter.com => x.com | t.co | mobile.twitter.com | www.x.com
+github.com => gist.github.com
+hm.com => www.hm.com | m2.hm.com | www2.hm.com`;
+if (aliasesTA && !aliasesTA.value) aliasesTA.value = DEFAULT_ALIASES;
+
+/* loader refs */
+const $L = id => document.getElementById(id);
+const loader=$L("loader"), loadTitle=$L("loadTitle"), loadFill=$L("loadFill"),
+      loadLabel=$L("loadLabel"), loadMetricLeft=$L("loadMetricLeft"),
+      loadLines=$L("loadLines"), loadPct=$L("loadPct"),
+      loadElapsed=$L("loadElapsed"), loadEta=$L("loadEta");
+
+let tStart=0,lastProgress={done:0,total:0},etaTicker=null;
+
+const fmtTime = s => { s=Math.max(0,Math.floor(s)); const m=String(Math.floor(s/60)).padStart(2,"0"), x=String(s%60).padStart(2,"0"); return `${m}:${x}`; };
+const showLoader = s => loader.classList.toggle("show",!!s);
+
+function setBusy(b,{title="Processing…",labelInit="Reading…",metric="Lines"}={}){
+  $("#run").disabled=b; $("#loadFile").disabled=b;
+  if(b){
+    tStart=performance.now(); lastProgress={done:0,total:0};
+    loadTitle.textContent=title; showLoader(true);
+    loadFill.style.width="0%"; loadLabel.textContent=labelInit;
+    if(loadMetricLeft.firstChild) loadMetricLeft.firstChild.textContent = metric + ": ";
+    loadLines.textContent="0 / 0"; loadPct.textContent="0%";
+    loadElapsed.textContent="00:00"; loadEta.textContent="—";
+    startEtaTicker();
+  }else{ showLoader(false); stopEtaTicker(); }
+}
+function startEtaTicker(){
+  stopEtaTicker();
+  etaTicker=setInterval(()=>{
+    const d=lastProgress.done, t=Math.max(1,lastProgress.total);
+    const pct=Math.min(100,(d/t)*100), elapsed=(performance.now()-tStart)/1000,
+          rate=d>0? elapsed/d:0, remain=d<t && rate>0? (t-d)*rate : 0;
+    loadElapsed.textContent=fmtTime(elapsed);
+    loadEta.textContent=remain? fmtTime(remain) : "—";
+    loadFill.style.width=pct.toFixed(2)+"%";
+    loadPct.textContent= `${pct.toFixed(1)}%`;
+    loadLines.textContent= `${d.toLocaleString()} / ${t.toLocaleString()}`;
+  }, 240);
+}
+function stopEtaTicker(){ if(etaTicker){ clearInterval(etaTicker); etaTicker=null; } }
+
+/* run */
+function run(){
+  const opts={ mode:mode.value, mergeSub:merge.checked, stripWww:stripww.checked, aliases:aliasesTA.value||"" };
+  worker.postMessage({
+    type:"process",
+    payload:{ text:input.value||"", opts, fuzzy:fuzzy.checked, thresh:Number(thresh.value)/100, maxpower:maxpw.checked }
+  });
+  setBusy(true,{title:"Processing lines…",labelInit:"Parsing…",metric:"Lines"});
+  saveSettings();
+  maxBadge.style.display = maxpw.checked ? "inline-block" : "none";
+}
+
+/* worker messages */
+worker.onmessage = (e)=>{
+  const {type,payload}=e.data;
+  if(type==="progress"){
+    lastProgress=payload;
+    loadLabel.textContent="Grouping…";
+    return;
+  }
+  if(type==="done"){
+    setBusy(false);
+    fullRows=payload.rows; totalPairs=payload.totalPairs;
+    viewRows=fullRows.slice();
+
+    rawCountEl.textContent = String(payload.rawCount);
+    pairsCountEl.textContent = String(totalPairs);
+    groupsCountEl.textContent= String(viewRows.length);
+    unidCountEl.textContent  = String(payload.unidentifiedCount);
+    noCredCountEl.textContent= String(payload.noCredCount);
+    badFmtCountEl.textContent= String(payload.badFmtCount);
+
+    dlCSV.disabled = fullRows.length===0;
+    dlJSON.disabled = false;
+    dlUnid.disabled = payload.unidentifiedCount===0;
+    dlNoCred.disabled= payload.noCredCount===0;
+    dlBadFmt.disabled= payload.badFmtCount===0;
+
+    render();
+    return;
+  }
+  if(type==="blob"){
+    if(!payload.url) return;
+    const a=document.createElement("a");
+    a.href=payload.url; a.download=payload.name;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(payload.url); a.remove();},0);
+  }
+};
+
+/* search */
+let searchTimer=null;
+$("#search").addEventListener("input", ()=>{
+  clearTimeout(searchTimer);
+  searchTimer=setTimeout(applySearch, 120);
+});
+$("#clearSearch").addEventListener("click",()=>{$("#search").value=""; applySearch();});
+function applySearch(){
+  const q=($("#search").value||"").trim().toLowerCase();
+  viewRows = !q ? fullRows.slice() : fullRows.filter(r => r.key.toLowerCase().includes(q));
+  groupsCountEl.textContent = String(viewRows.length);
+  render();
+}
+
+/* names-only toggle */
+toggleNames.addEventListener("click", ()=>{
+  namesOnly = !namesOnly;
+  toggleNames.textContent = namesOnly ? "Back to Table" : "Names Only";
+  render(true);
+});
+
+/* render (virtual table or bullets) */
+function render(force=false){
+  rowsEl.innerHTML = "";
+  spacerTop.style.height = "0px";
+  spacerBot.style.height = "0px";
+
+  if (namesOnly){
+    const ul=document.createElement("ul");
+    ul.className="bullets";
+    const frag=document.createDocumentFragment();
+    for(const r of viewRows){
+      const li=document.createElement("li");
+      li.textContent = r.key;
+      frag.appendChild(li);
+    }
+    ul.appendChild(frag);
+    rowsEl.appendChild(ul);
+    return;
+  }
+
+  updateVirtual();
+}
+
+function updateVirtual(){
+  const n=viewRows.length, h=vwrap.clientHeight, top=vwrap.scrollTop;
+  const start=Math.max(0,Math.floor(top/ROW_H)-VBUF);
+  const end=Math.min(n,Math.ceil((top+h)/ROW_H)+VBUF);
+  spacerTop.style.height=(start*ROW_H)+"px";
+  spacerBot.style.height=((n-end)*ROW_H)+"px";
+
+  const frag=document.createDocumentFragment();
+  for(let i=start;i<end;i++){
+    const r=viewRows[i], pct=totalPairs?((r.count/totalPairs)*100).toFixed(2):"0.00";
+    const row=document.createElement("div");
+    row.className="row";
+    row.innerHTML = `
+      <div><span class="pill">${r.key}</span></div>
+      <div>${r.count}</div>
+      <div>
+        <div class="barline"><div class="fill" style="width:${pct}%"></div></div>
+        <div class="small">${pct}%</div>
+      </div>
+      <div><button class="btn" data-group="${r.key}">Download</button></div>
+    `;
+    frag.appendChild(row);
+  }
+  rowsEl.innerHTML = "";
+  rowsEl.appendChild(frag);
+
+  rowsEl.querySelectorAll("button[data-group]").forEach(btn=>{
+    btn.onclick=()=> worker.postMessage({type:"downloadGroup",payload:{group:btn.getAttribute("data-group"),trim:trimlnk.checked}});
+  });
+}
+
+vwrap.addEventListener("scroll", ()=>{
+  if (namesOnly) return;
+  if(vwrap._busy) return;
+  vwrap._busy=true;
+  requestAnimationFrame(()=>{updateVirtual(); vwrap._busy=false;});
+});
+
+/* exports */
+dlCSV.onclick = ()=>worker.postMessage({type:"downloadSummary",payload:{format:"csv"}});
+dlJSON.onclick = ()=>worker.postMessage({type:"downloadSummary",payload:{format:"json"}});
+dlUnid.onclick = ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"unidentified"}});
+dlNoCred.onclick= ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"noCreds"}});
+dlBadFmt.onclick= ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"badFmt"}});
+
+/* open / drop — NO auto-run after load (per your request) */
+$("#run").addEventListener("click", run);
+$("#loadFile").addEventListener("click", ()=> $("#fileInput").click());
+
+$("#fileInput").addEventListener("change", async (e)=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  await readFileStreamIntoTextarea(f);
+  // no auto run
+});
+
+const dropZone=document.querySelector(".input-section.drop");
+["dragenter","dragover"].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.add("dragging")}));
+["dragleave","drop"].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.remove("dragging")}));
+dropZone.addEventListener("drop", async e=>{
+  const f=[...(e.dataTransfer?.files||[])].find(x=>x.type==="" && x.name?.toLowerCase().endsWith(".txt"));
+  if(!f) return;
+  await readFileStreamIntoTextarea(f);
+  // no auto run
+});
+
+/* streaming reader */
+async function readFileStreamIntoTextarea(f){
+  setBusy(true,{title:"Opening file…",labelInit:"Reading…",metric:"Bytes"});
+  lastProgress.total=f.size;
+  const reader=f.stream().getReader(), decoder=new TextDecoder();
+  let doneBytes=0, chunks=[];
+  try{
+    while(true){
+      const {value,done}=await reader.read();
+      if(done) break;
+      doneBytes+=value.byteLength;
+      chunks.push(decoder.decode(value,{stream:true}));
+      lastProgress.done=doneBytes;
+      loadLabel.textContent="Reading…";
+    }
+    chunks.push(decoder.decode());
+    input.value=chunks.join("");
+  }catch(_){ }
+  finally{ setBusy(false); }
+}
+
+/* UX niceties */
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); run(); }
+});
+thresh.addEventListener("input",e=>threshVal.textContent=(Number(e.target.value)/100).toFixed(2));
+
+/* settings */
+const SETTINGS_KEY="slg_settings_green_v3_fix";
+function saveSettings(){
+  const s={ mode:mode.value, merge:merge.checked, stripwww:stripww.checked, trimlink:trimlnk.checked,
+            fuzzy:fuzzy.checked, maxpower:maxpw.checked, thresh:thresh.value, aliases:aliasesTA.value };
+  try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }catch(_){}
+}
+(function loadSettings(){
+  try{
+    const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}");
+    if(s.mode) mode.value=s.mode;
+    if(typeof s.merge==="boolean") merge.checked=s.merge;
+    if(typeof s.stripwww==="boolean") stripww.checked=s.stripwww;
+    if(typeof s.trimlink==="boolean") trimlnk.checked=s.trimlink;
+    if(typeof s.fuzzy==="boolean") fuzzy.checked=s.fuzzy;
+    if(typeof s.maxpower==="boolean"){ maxpw.checked=s.maxpower; maxBadge.style.display=s.maxpower?"inline-block":"none"; }
+    if(s.thresh){ thresh.value=s.thresh; threshVal.textContent=(Number(s.thresh)/100).toFixed(2); }
+    if(s.aliases) aliasesTA.value=s.aliases;
+  }catch(_){}
+})();
+threshVal.textContent=(Number(thresh.value)/100).toFixed(2);
+</script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Smart Link Grouper — Ultra (Hardened Parser)</title>
+<title>Smart Link Grouper — Ultra (MAX POWER, Fixed Parsing)</title>
 <style>
 :root{
   --bg:#0a100b; --panel:#101712; --ink:#f2f6f1; --muted:#a7b8a7; --line:#1b2a1c;
@@ -34,10 +34,12 @@ h1{margin:0;font-weight:800;letter-spacing:.2px;font-size:clamp(18px,2.2vw,22px)
 .btn.accent{background:var(--g2);color:#04170c;border-color:#70e6ab;font-weight:700}
 .search{display:flex;gap:8px;align-items:center}
 .search input{background:#0b110d;border:1px solid #163021;border-radius:999px;padding:10px 12px;min-width:clamp(160px,28vw,260px);color:var(--ink)}
+.kbd{padding:2px 6px;border:1px solid #2a3c2e;border-bottom-width:2px;border-radius:6px;background:#0e1812;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#dfe9e2}
 .content{display:grid;gap:var(--gap);padding:16px}
 .grid{display:grid;grid-template-columns:minmax(420px,1.6fr) minmax(300px,1fr);gap:var(--gap)}
 @media (max-width:1000px){.grid{grid-template-columns:1fr}}
 .box{background:#0c140f;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px}
+strong{font-weight:700}
 .small{color:var(--muted);font-size:12px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 .pill{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid #2a3c2e;background:#0f1a13;font-size:12px}
@@ -47,9 +49,6 @@ textarea:focus, input:focus, select:focus{border-color:#27d07b;outline:none;box-
 :where(.chip, select){padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#0f1a13;display:flex;gap:8px;align-items:center;cursor:pointer}
 .slider{display:flex;align-items:center;gap:8px}
 input[type="range"]{accent-color:#27d07b;width:110px}
-.max-badge,.names-only{margin-left:6px;padding:2px 8px;border-radius:999px;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-.max-badge{background:#0d1f15;border:1px solid #244b34;color:#aef3cb}
-.names-only{background:#0e1812;border:1px solid #284532;color:#cdf1e0}
 .vwrap{position:relative;border:1px solid var(--line);border-radius:var(--r-sm);overflow:auto;height:clamp(300px,54vh,560px);background:#0b120d;margin-top:10px;overscroll-behavior:contain}
 .row{display:grid;grid-template-columns:1fr 92px 150px 120px;gap:8px;align-items:center;height:48px;border-bottom:1px dashed #1a2b1c;padding:0 12px;font-size:14px}
 .header .row{height:40px;font-weight:700;color:#caffdf;background:#0e1812;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
@@ -66,6 +65,11 @@ input[type="range"]{accent-color:#27d07b;width:110px}
 .loadbar{margin-top:12px;height:10px;border-radius:10px;background:#0b1b12;overflow:hidden}
 .loadfill{height:100%;width:0%;background:linear-gradient(90deg,var(--g1),var(--g2),var(--g3),var(--g4));transition:width .12s linear}
 .loadgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:12px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.drop{position:relative}
+.drop::after{content:"Drop .txt to load";position:absolute;inset:0;border:2px dashed #2a3c2e;border-radius:14px;display:none;place-items:center;color:#dfe9e2;background:#0b110dcc}
+.drop.dragging::after{display:grid}
+.max-badge{margin-left:6px;padding:2px 8px;border-radius:999px;background:#0d1f15;border:1px solid #244b34;color:#aef3cb;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.names-only{margin-left:6px;padding:2px 8px;border-radius:999px;background:#0e1812;border:1px solid #284532;color:#cdf1e0;font:600 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 ul.bullets{margin:10px 0 0 18px;padding:0}
 ul.bullets li{margin:4px 0}
 :focus-visible{outline:2px solid #27d07b;outline-offset:2px}
@@ -203,37 +207,12 @@ youtu.be/watch?v=123:foo:bar"></textarea>
 </div>
 
 <script>
-/* =================== Worker with hardened parsing =================== */
+/* ============ Web Worker (parsing + grouping) ============ */
 const workerSrc = `
+const URL_RX = /https?:\\/\\/[\\S]+?(?=:[^\\/\\s]|$)/i; // stop URL before ":user"
+const DOMAIN_ANYWHERE_RX = /\\b([a-z0-9-]+(?:\\.[a-z0-9-]+)+)(?:\\/[\\S^:]*)?/i;
 const TRAIL=/[),.;:!?}\\]>’"'”]+$/;
 const MULTI_TLD=new Set(["co.uk","org.uk","ac.uk","gov.uk","co.jp","ne.jp","or.jp","com.au","net.au","org.au","com.br","com.ph","net.ph","org.ph"]);
-
-// 1) Pre-clean (normalize odd colons/whitespace, remove zero-width)
-function preClean(s){
-  return (s||"")
-    .replace(/[\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u206F]/g,"")   // zero-widths & dir marks
-    .replace(/[\\u00A0\\u1680\\u2000-\\u200A\\u202F\\u205F\\u3000]/g," ") // exotic spaces -> space
-    .replace(/[：﹕꞉]/g,":") // fullwidth/compat colon -> colon
-    .replace(/[“”]/g,'"').replace(/[‘’]/g,"'")
-    .replace(/[\\u0000-\\u001F]/g,"") // control chars
-    .trim();
-}
-
-// 2) URL/host finder that **stops before :user** (not port/path)
-const URL_TOKEN_RX = /https?:\\/\\/[\\S]+?(?=(?:\\s|$)|:(?!\\/))/i;
-const HOST_ANY_RX  = /\\b([a-z0-9-]+(?:\\.[a-z0-9-]+)+)(?::\\d+)?(?:\\/[\\S^:]*)?/i;
-
-function findUrlOrHostAnywhere(line){
-  const m1=line.match(URL_TOKEN_RX);
-  if(m1) return m1[0].replace(TRAIL,"");
-  const m2=line.match(HOST_ANY_RX);
-  if(m2){
-    const token=m2[0];
-    const u = token.startsWith("http") ? token : "https://"+token;
-    return u.replace(TRAIL,"");
-  }
-  return null;
-}
 
 function parseAliases(text){
   const lines=(text||"").split("\\n").map(s=>s.trim()).filter(Boolean);
@@ -250,7 +229,8 @@ function parseAliases(text){
 }
 
 function canonicalHost(host,{stripWww=true,mergeSub=true,aliasMap=null}={}){
-  host=(host||"").toLowerCase().replace(/\\.$/,"").replace(/:\\d+$/,"");
+  host=(host||"").toLowerCase().replace(/\\.$/,"");
+  host=host.replace(/:\\d+$/,"");
   try{ host=host.normalize("NFKC"); }catch(_){}
   if(stripWww && host.startsWith("www.")) host=host.slice(4);
   if(aliasMap && aliasMap.has(host)) host=aliasMap.get(host);
@@ -263,46 +243,60 @@ function canonicalHost(host,{stripWww=true,mergeSub=true,aliasMap=null}={}){
   return p.slice(-2).join(".");
 }
 
+function findUrlOrHostAnywhere(line){
+  const m1=line.match(URL_RX);
+  if(m1) return m1[0].replace(TRAIL,"");
+  const m2=line.match(DOMAIN_ANYWHERE_RX);
+  if(m2){
+    const host=m2[1];
+    const after=line.slice(m2.index+m2[0].length);
+    const path=(/^(\\/[\\S^:]*)/.exec(after)||["",""])[1];
+    return ("https://"+host+path).replace(TRAIL,"");
+  }
+  return null;
+}
+
 function cleanUrlSeparator(u){
   if(!u) return u;
-  // if URL ends with ":" and next chunk looked like user:pass, trim the colon
-  if(/:\\s*$/.test(u)) u=u.replace(/:+\\s*$/,"");
+  // strip trailing colon if it's a separator before creds (not port or path)
   if(/:[^\\/\\s]$/.test(u)) u=u.slice(0,-1);
   return u.replace(TRAIL,"");
 }
 
-function extractCredsTail(full, token){
-  // find tail **after** token occurrence (prefer full match)
-  let idx = full.indexOf(token);
-  if(idx<0){
-    const tNoScheme=token.replace(/^https?:\\/\\//i,"");
-    idx = full.indexOf(tNoScheme);
-    if(idx<0) idx=0;
-    else token = tNoScheme;
-  }
-  let tail = full.slice(idx + token.length);
-  // common separators right after URL
-  tail = tail.replace(/^[\\s|>\\-–—:_]+/,"");
-  tail = preClean(tail);
-  return tail;
+function stripWeird(s){
+  return (s||"")
+    .replace(/[\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u206F]/g,"")
+    .replace(/[\\u0000-\\u001F]/g,"")
+    .trim();
 }
 
-function splitUserPass(tail){
-  if(!tail) return {user:null, pass:null};
-  // prefer first ":" as separator; allow spaces in pass
-  const c = tail.indexOf(":");
+function extractLine(line){
+  const url0=findUrlOrHostAnywhere(line);
+  if(!url0) return {url:null,user:null,pass:null,raw:line};
+  const url=cleanUrlSeparator(url0);
+  const token=url.replace(/^https?:\\/\\//i,"");
+  const idxFull=line.indexOf(url);
+  const idxTok=line.indexOf(token);
+  const idx = idxFull>=0 ? idxFull : (idxTok>=0 ? idxTok : 0);
+  const skipLen = idxFull>=0 ? url.length : (idxTok>=0 ? token.length : url.length);
+  let tail=line.slice(idx+skipLen);
+  tail = tail.replace(/^[\\s:]+/,"");
+  tail = stripWeird(tail);
+  if(!tail) return {url,user:null,pass:null,raw:line};
+
+  let user=null, pass=null;
+  const c=tail.indexOf(":");
   if(c>=0){
-    let user = preClean(tail.slice(0,c));
-    let pass = preClean(tail.slice(c+1));
-    if(user==="") user=null;
-    if(pass==="") pass=null;
-    return {user, pass};
+    user=stripWeird(tail.slice(0,c));
+    pass=stripWeird(tail.slice(c+1));
+  }else{
+    const parts=tail.split(/\\s+/).filter(Boolean);
+    if(parts.length===1) user=parts[0];
+    else if(parts.length>=2){ user=parts[0]; pass=parts.slice(1).join(" "); }
   }
-  // fallback: first token user, rest pass
-  const parts=tail.split(/\\s+/).filter(Boolean);
-  if(parts.length===1) return {user:parts[0], pass:null};
-  if(parts.length>=2)   return {user:parts[0], pass:parts.slice(1).join(" ")};
-  return {user:null, pass:null};
+  if(user==="") user=null;
+  if(pass==="") pass=null;
+  return {url,user,pass,raw:line};
 }
 
 function normCore(host){
@@ -317,7 +311,7 @@ function dice(a,b){
   a=a||""; b=b||"";
   if(!a||!b) return 0;
   if(a===b) return 1;
-  const grams=s=>{const z=[]; for(let i=0;i<s.length-1;i++) z.push(s.slice(i,i+2)); return z;};
+  const grams=s=>{const z=[]; for(let i=0;i<s.length-1;i++) z.push(s.slice(i,i+1+1)); return z;};
   const A=grams(a), B=grams(b), map=new Map();
   for(const g of A) map.set(g,(map.get(g)||0)+1);
   let inter=0;
@@ -345,23 +339,13 @@ self.onmessage=async (e)=>{
 
     for(let i=0;i<N;i+=chunk){
       for(let j=i;j<Math.min(i+chunk,N);j++){
-        let line=preClean(lines[j]);
+        let line=lines[j].trim();
         if(!line || line.startsWith("#")) continue;
         rawCount++;
-
+        const {url,user,pass}=extractLine(line);
+        if(!url){ unidentified.push(line); continue; }
         try{
-          const url0 = findUrlOrHostAnywhere(line);
-          if(!url0){ unidentified.push(lines[j]); continue; }
-
-          const url = cleanUrlSeparator(url0);
-          let u;
-          try{ u = new URL(url); }
-          catch(_){ badFmt.push(lines[j]); continue; }
-
-          const token = url; // use final token for tail calc
-          const tail = extractCredsTail(lines[j], token);
-          const {user, pass} = splitUserPass(tail);
-
+          const u=new URL(url);
           let key;
           if(opts.mode==="url"){
             let clean=url.replace(TRAIL,"");
@@ -373,19 +357,14 @@ self.onmessage=async (e)=>{
             key=host;
             meta.set(key,{host, core:normCore(host)});
           }
-
-          if(!user || !pass){
-            noCreds.push(lines[j]);
-            continue;
-          }
-
+          if(!user || !pass){ noCreds.push(line); continue; }
           const pair=\`\${String(user).trim()}:\${String(pass).trim()}\`;
           if(!groups.has(key)) groups.set(key,new Map());
           const pm=groups.get(key);
           if(!pm.has(pair)) pm.set(pair,new Set());
           pm.get(pair).add(url);
         }catch(_){
-          badFmt.push(lines[j]);
+          badFmt.push(line);
         }
       }
       if((tick++ % tickEvery)===0) postMessage({type:"progress",payload:{done:Math.min(i+chunk,N),total:N}});
@@ -491,7 +470,7 @@ self.onmessage=async (e)=>{
 };
 `;
 
-/* =================== Main (UI) =================== */
+/* ============ Main (UI) ============ */
 const worker = new Worker(URL.createObjectURL(new Blob([workerSrc], {type:"application/javascript"})));
 const $ = s => document.querySelector(s);
 
@@ -514,6 +493,7 @@ const vwrap = $("#vwrap"), rowsEl = $("#rows"),
 const ROW_H=48, VBUF=20;
 let viewRows=[], fullRows=[], totalPairs=0, namesOnly=false;
 
+/* defaults */
 const DEFAULT_ALIASES =
 `spotify.com => accounts.spotify.com | open.spotify.com | www.spotify.com
 netflix.com => www.netflix.com | m.netflix.com
@@ -526,7 +506,7 @@ github.com => gist.github.com
 hm.com => www.hm.com | m2.hm.com | www2.hm.com`;
 if (aliasesTA && !aliasesTA.value) aliasesTA.value = DEFAULT_ALIASES;
 
-/* loader */
+/* loader refs */
 const $L = id => document.getElementById(id);
 const loader=$L("loader"), loadTitle=$L("loadTitle"), loadFill=$L("loadFill"),
       loadLabel=$L("loadLabel"), loadMetricLeft=$L("loadMetricLeft"),
@@ -629,35 +609,43 @@ function applySearch(){
   render();
 }
 
-/* names-only */
-let namesOnly=false;
-const toggleNames = $("#toggleNames");
+/* names-only toggle */
 toggleNames.addEventListener("click", ()=>{
   namesOnly = !namesOnly;
   toggleNames.textContent = namesOnly ? "Back to Table" : "Names Only";
   render(true);
 });
 
-/* render */
-const rowsEl = $("#rows"), vwrap = $("#vwrap"), spacerTop=$("#spacerTop"), spacerBot=$("#spacerBot");
-function render(){
-  rowsEl.innerHTML=""; spacerTop.style.height="0px"; spacerBot.style.height="0px";
-  if(namesOnly){
-    const ul=document.createElement("ul"); ul.className="bullets";
+/* render (virtual table or bullets) */
+function render(force=false){
+  rowsEl.innerHTML = "";
+  spacerTop.style.height = "0px";
+  spacerBot.style.height = "0px";
+
+  if (namesOnly){
+    const ul=document.createElement("ul");
+    ul.className="bullets";
     const frag=document.createDocumentFragment();
-    for(const r of viewRows){ const li=document.createElement("li"); li.textContent=r.key; frag.appendChild(li); }
-    ul.appendChild(frag); rowsEl.appendChild(ul);
-  }else{
-    updateVirtual();
+    for(const r of viewRows){
+      const li=document.createElement("li");
+      li.textContent = r.key;
+      frag.appendChild(li);
+    }
+    ul.appendChild(frag);
+    rowsEl.appendChild(ul);
+    return;
   }
+
+  updateVirtual();
 }
-const ROW_H=48, VBUF=20;
+
 function updateVirtual(){
   const n=viewRows.length, h=vwrap.clientHeight, top=vwrap.scrollTop;
   const start=Math.max(0,Math.floor(top/ROW_H)-VBUF);
   const end=Math.min(n,Math.ceil((top+h)/ROW_H)+VBUF);
   spacerTop.style.height=(start*ROW_H)+"px";
   spacerBot.style.height=((n-end)*ROW_H)+"px";
+
   const frag=document.createDocumentFragment();
   for(let i=start;i<end;i++){
     const r=viewRows[i], pct=totalPairs?((r.count/totalPairs)*100).toFixed(2):"0.00";
@@ -674,31 +662,46 @@ function updateVirtual(){
     `;
     frag.appendChild(row);
   }
-  rowsEl.innerHTML=""; rowsEl.appendChild(frag);
+  rowsEl.innerHTML = "";
+  rowsEl.appendChild(frag);
+
   rowsEl.querySelectorAll("button[data-group]").forEach(btn=>{
-    btn.onclick=()=> worker.postMessage({type:"downloadGroup",payload:{group:btn.getAttribute("data-group"),trim:$("#trimlink").checked}});
+    btn.onclick=()=> worker.postMessage({type:"downloadGroup",payload:{group:btn.getAttribute("data-group"),trim:trimlnk.checked}});
   });
 }
-vwrap.addEventListener("scroll", ()=>{ if(namesOnly) return; if(vwrap._busy) return; vwrap._busy=true; requestAnimationFrame(()=>{updateVirtual(); vwrap._busy=false;}); });
+
+vwrap.addEventListener("scroll", ()=>{
+  if (namesOnly) return;
+  if(vwrap._busy) return;
+  vwrap._busy=true;
+  requestAnimationFrame(()=>{updateVirtual(); vwrap._busy=false;});
+});
 
 /* exports */
-$("#dlCSV").onclick = ()=>worker.postMessage({type:"downloadSummary",payload:{format:"csv"}});
-$("#dlJSON").onclick = ()=>worker.postMessage({type:"downloadSummary",payload:{format:"json"}});
-$("#dlUnid").onclick = ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"unidentified"}});
-$("#dlNoCred").onclick= ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"noCreds"}});
-$("#dlBadFmt").onclick= ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"badFmt"}});
+dlCSV.onclick = ()=>worker.postMessage({type:"downloadSummary",payload:{format:"csv"}});
+dlJSON.onclick = ()=>worker.postMessage({type:"downloadSummary",payload:{format:"json"}});
+dlUnid.onclick = ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"unidentified"}});
+dlNoCred.onclick= ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"noCreds"}});
+dlBadFmt.onclick= ()=>worker.postMessage({type:"downloadBucket",payload:{bucket:"badFmt"}});
 
-/* open / drop (no auto-run) */
+/* open / drop — NO auto-run after load (per your request) */
 $("#run").addEventListener("click", run);
 $("#loadFile").addEventListener("click", ()=> $("#fileInput").click());
-$("#fileInput").addEventListener("change", async (e)=>{ const f=e.target.files?.[0]; if(!f) return; await readFileStreamIntoTextarea(f); });
+
+$("#fileInput").addEventListener("change", async (e)=>{
+  const f=e.target.files?.[0]; if(!f) return;
+  await readFileStreamIntoTextarea(f);
+  // no auto run
+});
 
 const dropZone=document.querySelector(".input-section.drop");
 ["dragenter","dragover"].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.add("dragging")}));
 ["dragleave","drop"].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();dropZone.classList.remove("dragging")}));
 dropZone.addEventListener("drop", async e=>{
   const f=[...(e.dataTransfer?.files||[])].find(x=>x.type==="" && x.name?.toLowerCase().endsWith(".txt"));
-  if(!f) return; await readFileStreamIntoTextarea(f);
+  if(!f) return;
+  await readFileStreamIntoTextarea(f);
+  // no auto run
 });
 
 /* streaming reader */
@@ -713,37 +716,42 @@ async function readFileStreamIntoTextarea(f){
       if(done) break;
       doneBytes+=value.byteLength;
       chunks.push(decoder.decode(value,{stream:true}));
-      lastProgress.done=doneBytes; loadLabel.textContent="Reading…";
+      lastProgress.done=doneBytes;
+      loadLabel.textContent="Reading…";
     }
-    chunks.push(decoder.decode()); $("#input").value=chunks.join("");
-  }catch(_){ } finally{ setBusy(false); }
+    chunks.push(decoder.decode());
+    input.value=chunks.join("");
+  }catch(_){ }
+  finally{ setBusy(false); }
 }
 
-/* UX shortcuts */
-document.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); run(); }});
-$("#thresh").addEventListener("input",e=>$("#threshVal").textContent=(Number(e.target.value)/100).toFixed(2));
+/* UX niceties */
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); run(); }
+});
+thresh.addEventListener("input",e=>threshVal.textContent=(Number(e.target.value)/100).toFixed(2));
 
 /* settings */
-const SETTINGS_KEY="slg_settings_green_v4_hardened";
+const SETTINGS_KEY="slg_settings_green_v3_fix";
 function saveSettings(){
-  const s={ mode:$("#mode").value, merge:$("#merge").checked, stripwww:$("#stripwww").checked, trimlink:$("#trimlink").checked,
-            fuzzy:$("#fuzzy").checked, maxpower:$("#maxpower").checked, thresh:$("#thresh").value, aliases:$("#aliases").value };
+  const s={ mode:mode.value, merge:merge.checked, stripwww:stripww.checked, trimlink:trimlnk.checked,
+            fuzzy:fuzzy.checked, maxpower:maxpw.checked, thresh:thresh.value, aliases:aliasesTA.value };
   try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); }catch(_){}
 }
 (function loadSettings(){
   try{
     const s=JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}");
-    if(s.mode) $("#mode").value=s.mode;
-    if(typeof s.merge==="boolean") $("#merge").checked=s.merge;
-    if(typeof s.stripwww==="boolean") $("#stripwww").checked=s.stripwww;
-    if(typeof s.trimlink==="boolean") $("#trimlink").checked=s.trimlink;
-    if(typeof s.fuzzy==="boolean") $("#fuzzy").checked=s.fuzzy;
-    if(typeof s.maxpower==="boolean"){ $("#maxpower").checked=s.maxpower; $("#maxBadge").style.display=s.maxpower?"inline-block":"none"; }
-    if(s.thresh){ $("#thresh").value=s.thresh; $("#threshVal").textContent=(Number(s.thresh)/100).toFixed(2); }
-    if(s.aliases) $("#aliases").value=s.aliases;
+    if(s.mode) mode.value=s.mode;
+    if(typeof s.merge==="boolean") merge.checked=s.merge;
+    if(typeof s.stripwww==="boolean") stripww.checked=s.stripwww;
+    if(typeof s.trimlink==="boolean") trimlnk.checked=s.trimlink;
+    if(typeof s.fuzzy==="boolean") fuzzy.checked=s.fuzzy;
+    if(typeof s.maxpower==="boolean"){ maxpw.checked=s.maxpower; maxBadge.style.display=s.maxpower?"inline-block":"none"; }
+    if(s.thresh){ thresh.value=s.thresh; threshVal.textContent=(Number(s.thresh)/100).toFixed(2); }
+    if(s.aliases) aliasesTA.value=s.aliases;
   }catch(_){}
 })();
-$("#threshVal").textContent=(Number($("#thresh").value)/100).toFixed(2);
+threshVal.textContent=(Number(thresh.value)/100).toFixed(2);
 </script>
 </body>
 </html>

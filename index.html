@@ -3,26 +3,36 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart Link Grouper — Ultra (Stable+PickerSafe)</title>
+<title>Smart Link Grouper — Ultra (Turbo | Anim + Perf)</title>
 <style>
   :root{
-    --bg:#0a0f0d; --panel:#0f1714; --ink:#eaf4ee; --muted:#a9c0b4;
-    --accent:#98ff98; --accent-2:#00c389; --danger:#ff5c7a; --border:#183127;
+    --bg:#07120e; --bg2:#0a0f0d; --panel:#0f1714; --ink:#eaf4ee; --muted:#a9c0b4;
+    --accent:#98ff98; --accent-2:#00c389; --accent-dim:#5fd3a6; --danger:#ff5c7a; --border:#183127;
     --chip:#11231c; --shadow:0 10px 30px rgba(0,0,0,.35);
     --info:#103024; --info-bd:#1d4d39;
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,#07120e,#0a0f0d 16%,#0a0f0d 84%,#06100e);color:var(--ink);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),var(--bg2) 16%,var(--bg2) 84%,#06100e);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
   .app{max-width:1200px;margin:0 auto;padding:14px}
   .header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(10,15,13,.98),rgba(10,15,13,.85));backdrop-filter:saturate(120%) blur(8px);border-bottom:1px solid var(--border)}
   .hdr-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px}
-  .title{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px;color:var(--accent)}
-  .badge{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--accent)}
-  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:6px 12px;cursor:pointer;user-select:none}
+  .title{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.2px;color:var(--accent);
+    background:linear-gradient(90deg,var(--accent),#c8ffd6,var(--accent-2),var(--accent));
+    -webkit-background-clip:text;background-clip:text;color:transparent; background-size:200% 100%;
+    animation:shimmer 8s linear infinite}
+  @keyframes shimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
+  .badge{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--accent);
+    box-shadow:0 0 0 0 rgba(152,255,152,.4);animation:glow 2.6s ease-in-out infinite}
+  @keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(152,255,152,.3)}50%{box-shadow:0 0 20px 4px rgba(152,255,152,.25)}}
+  .pill{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border:1px solid var(--border);border-radius:999px;padding:6px 12px;cursor:pointer;user-select:none;transition:transform .12s ease, box-shadow .2s ease}
+  .pill:active{transform:scale(.98)}
   .pill[data-on="true"]{box-shadow:inset 0 0 0 1px var(--accent);color:var(--accent)}
   .search{flex:1;display:flex;gap:8px}
-  .search input{flex:1;background:#0c1612;border:1px solid var(--border);color:var(--ink);border-radius:10px;padding:10px}
-  .btn{background:#0f1714;border:1px solid var(--border);color:var(--ink);padding:10px 12px;border-radius:10px;cursor:pointer}
+  .search input{flex:1;background:#0c1612;border:1px solid var(--border);color:var(--ink);border-radius:10px;padding:10px;transition:box-shadow .2s ease}
+  .search input:focus{outline:none;box-shadow:0 0 0 2px rgba(152,255,152,.25)}
+  .btn{background:#0f1714;border:1px solid var(--border);color:var(--ink);padding:10px 12px;border-radius:10px;cursor:pointer;transition:transform .12s ease, box-shadow .2s ease, background .2s ease}
+  .btn:hover{box-shadow:0 0 0 2px rgba(152,255,152,.15) inset}
+  .btn:active{transform:translateY(1px)}
   .btn.primary{background:linear-gradient(180deg,#0f2a1f,#0e2019);border-color:#1e5e43}
   .grid{display:grid;grid-template-columns:1fr 360px;gap:12px;margin:12px}
   @media (max-width: 980px){.grid{grid-template-columns:1fr}}
@@ -32,11 +42,12 @@
   textarea{width:100%;min-height:200px;background:#0c1612;border:1px solid var(--border);color:var(--ink);border-radius:12px;padding:10px;resize:vertical}
   .list-wrap{position:relative;height:60vh;border:1px solid var(--border);border-radius:12px;background:#0c1612;overflow:auto}
   .spacer{height:0}
-  .row-item{position:absolute;left:0;right:0;display:grid;grid-template-columns:1fr 100px 160px 120px;gap:10px;padding:10px;border-bottom:1px solid #0e2019}
+  .row-item{position:absolute;left:0;right:0;display:grid;grid-template-columns:1fr 100px 160px 120px;gap:10px;padding:10px;border-bottom:1px solid #0e2019;will-change:transform,opacity;transition:background .2s ease}
+  .row-item:hover{background:#0d1c15}
   .row-item .group{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .bar{height:8px;background:#0e2019;border-radius:999px;overflow:hidden;border:1px solid #113024}
-  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
-  .namesonly{padding:12px}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .24s ease}
+  .namesonly{padding:12px;animation:fade .2s ease}
   .namesonly ul{margin:0;padding-left:18px;columns:2}
   @media (max-width:820px){.namesonly ul{columns:1}}
   .chip{background:var(--chip);border:1px solid var(--border);padding:6px 10px;border-radius:999px;color:var(--muted);font-size:12px}
@@ -44,11 +55,14 @@
   .exports{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .overlay{position:fixed;inset:0;background:rgba(6,16,12,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:50}
   .overlay.show{display:flex}
-  .loader{background:#0c1612;border:1px solid var(--border);border-radius:16px;padding:16px 20px;min-width:300px;box-shadow:var(--shadow)}
+  .loader{background:#0c1612;border:1px solid var(--border);border-radius:16px;padding:16px 20px;min-width:300px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+  .loader:before{content:"";position:absolute;inset:auto -40% 0 -40%;height:3px;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:progressSweep 2s linear infinite}
+  @keyframes progressSweep{0%{transform:translateX(-50%)}100%{transform:translateX(50%)}}
   .loader .spin{width:28px;height:28px;border:3px solid #123628;border-top-color:var(--accent);border-radius:50%;animation:rot 1s linear infinite;margin-right:10px}
   @keyframes rot{to{transform:rotate(360deg)}}
   .infobar{display:none;margin:10px 12px;padding:10px 12px;border-radius:10px;background:var(--info);border:1px solid var(--info-bd);color:#b8e3cf}
   .infobar.show{display:block}
+  @keyframes fade{from{opacity:.6;transform:translateY(2px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -57,10 +71,10 @@
       <div class="hdr-row">
         <div class="title">Smart Link Grouper — Ultra <span id="maxBadge" class="badge" style="display:none">⚡ MAX POWER</span></div>
         <div class="search">
-          <input id="q" placeholder="Search group names… (live filter)" />
-          <label id="namesOnlyToggle" class="pill" data-on="false" title="Names-Only view"><input type="checkbox"/>Names‑Only</label>
-          <button id="openBtn" class="btn" title="Open .txt">Open</button>
-          <button id="groupBtn" class="btn primary" title="Ctrl/Cmd+Enter">Group</button>
+          <input id="q" placeholder="Search group names… (live filter | press / to focus)" />
+          <label id="namesOnlyToggle" class="pill" data-on="false" title="Names-Only view (N)"><input type="checkbox"/>Names‑Only</label>
+          <button id="openBtn" class="btn" title="Open .txt (O)">Open</button>
+          <button id="groupBtn" class="btn primary" title="Group (Ctrl/Cmd+Enter or G)">Group</button>
         </div>
       </div>
     </div>
@@ -151,6 +165,8 @@ function $(id){ return document.getElementById(id); }
 function ls(k,v){ if(v===undefined) return JSON.parse(localStorage.getItem(k)||'null'); localStorage.setItem(k, JSON.stringify(v)); }
 function now(){ return performance.now(); }
 function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function debounce(fn,ms){ let t; return function(){ const a=arguments, ctx=this; clearTimeout(t); t=setTimeout(()=>fn.apply(ctx,a),ms); } }
+function throttleRAF(fn){ let p=0; return (...a)=>{ if(p) return; p=1; requestAnimationFrame(()=>{ p=0; fn(...a); }); } }
 
 /************** Multi‑TLD & Dice **************/
 const MULTI_TLDS = ['co.uk','org.uk','ac.uk','gov.uk','sch.uk','ltd.uk','plc.uk','co.jp','ne.jp','or.jp','go.jp','ac.jp','ad.jp','ed.jp','com.au','net.au','org.au','edu.au','gov.au','com.br','net.br','org.br','com.ph','net.ph','org.ph','gov.ph','edu.ph','co.nz','org.nz','govt.nz','ac.nz','com.tr','gen.tr','org.tr'];
@@ -172,14 +188,15 @@ const workerSrc = [
   'function normalizeColons(s){return s.replace(/[\\u2236\\uFF1A\\uFE55]/g,\':\');}',
   'function preclean(line){if(!line)return \"\";return normalizeSpaces(normalizeColons(line.replace(ZERO_WIDTH,\"\").replace(CONTROLS,\"\"))).trim();}',
   'function synthesize(tok){return /^https?:\\/\\//i.test(tok)?tok:\'https://\'+tok;}',
-  'function registrable(host){host=(host||\"\").replace(/\\.$/,\"\").replace(/:\\d+$/,\"\").toLowerCase();const p=host.split(\'.\');if(p.length<=2)return host.replace(/^www\\\./,\"\");const t2=p.slice(-2).join(\'.\'),t3=p.slice(-3).join(\'.\');if(MULTI.has(t3))return p.slice(-4).join(\'.\');if(MULTI.has(t2))return p.slice(-3).join(\'.\');return p.slice(-2).join(\'.\');}',
+  // registrable: last 3 labels when t2 is multi-TLD, else last 2 labels
+  'function registrable(host){host=(host||\"\").replace(/\\.$/,\"\").replace(/:\\d+$/,\"\").toLowerCase();const p=host.split(\'.\').filter(Boolean);if(p.length<=2)return host.replace(/^www\\\./,\"\");const t2=p.slice(-2).join(\'.\');if(MULTI.has(t2))return p.slice(-3).join(\'.\');return p.slice(-2).join(\'.\');}',
   'function parseAliases(text){const lines=(text||\"\").split(\"\n\").map(s=>s.trim()).filter(Boolean);const map=new Map();for(const line of lines){const m=line.split(\'=>\');if(m.length<2)continue;const canon=m[0].trim().toLowerCase();const alts=m[1].split(\'|\').map(s=>s.trim().toLowerCase()).filter(Boolean);map.set(canon,canon);for(const a of alts)map.set(a,canon);}return map;}',
   'function stopBeforeUser(m,full){const start=m.index;let end=start+m[0].length;const seg=full.slice(start,end);const scheme=seg.indexOf(\'://\');const scan=scheme>=0?scheme+3:0;for(let i=scan;i<seg.length;i++){if(seg[i]!==\':\')continue;const ahead=seg.slice(i);const port=ahead.match(/^:(\\d{1,5})(?:[\\/?#]|$)/);if(port){i+=port[0].length-1;continue;}const cred=ahead.match(/^:([^\\s:\\/][^:\\s]*)?:/);if(cred){end=start+i;break;}}while(end>start&&TRAIL.test(full[end-1]))end--;return {start,end};}',
   'function findUrlOrHost(line){const m=URL_RX.exec(line);if(m){const r=stopBeforeUser(m,line);return {token:line.slice(r.start,r.end),iStart:r.start,iEnd:r.end,hasScheme:true};}const d=DOMAIN_ANYWHERE_RX.exec(line);if(d){let tok=d[0];tok=tok.replace(TRAIL,\"\");return {token:tok,iStart:d.index,iEnd:d.index+tok.length,hasScheme:false};}return null;}',
   'function splitCreds(tail){let t=tail.trim().replace(/^([\\s|:;,_\\-—•·])+/,\"\");if(!t)return [null,null];const i=t.indexOf(\':\');if(i===-1)return [t.trim()||null,null];const user=t.slice(0,i).trim();const pass=t.slice(i+1).trim();return [user||null,pass||null];}',
   'function normalizeUrl(u){try{return new URL(u);}catch{return null}}',
   'function uniqPush(set,key){if(!set.has(key))set.add(key);}',
-  'onmessage=ev=>{try{const {kind,payload}=ev.data||{};if(kind===\'parse\'){const {text,aliasesText,options,batchSize}=payload;const lines=text.split(/\\r?\\n/);const aliasMap=parseAliases(aliasesText);const groups=new Map();const buckets={unidentified:[],nocreds:[],badfmt:[]};let raw_lines=lines.length,parsed_pairs=0;for(let i=0;i<lines.length;i++){const raw=lines[i];const line=preclean(raw);if(!line)continue;const found=findUrlOrHost(line);if(!found){buckets.unidentified.push(raw);continue;}const urlStr=synthesize(found.token);const urlObj=normalizeUrl(urlStr);if(!urlObj){buckets.badfmt.push(raw);continue;}let host=urlObj.host.toLowerCase();if(options.stripWWW)host=host.replace(/^www\\\./,\"\");const aliased=aliasMap.get(host)||host;let groupKey=aliased;if(options.mode===\'domain\'){groupKey=options.mergeSubs?registrable(aliased):aliased.replace(/:\\d+$/,\"\");}else{urlObj.hash=\"\";groupKey=urlObj.toString().replace(/\\/$/,\"\");}const tail=line.slice(found.iEnd);const [user,pass]=splitCreds(tail);if(!user||!pass){buckets.nocreds.push(raw);}let g=groups.get(groupKey);if(!g){g={pairs:new Set(),links:new Set()};groups.set(groupKey,g);}if(user&&pass){parsed_pairs++;uniqPush(g.pairs,user+\':\'+pass);}uniqPush(g.links,urlObj.toString());if(batchSize&&(i%batchSize===0)){const p=Math.round((i/lines.length)*100);postMessage({kind:\'progress\',p,done:i,total:lines.length});}}postMessage({kind:\'parsed\',groups:Array.from(groups.entries()),buckets,meta:{raw_lines,parsed_pairs}});}else if(kind===\'fuzzy\'){const {entries,threshold}=payload;const stop=new Set([\'login\',\'auth\',\'accounts\',\'account\',\'signin\',\'id\',\'secure\',\'sso\',\'my\',\'app\']);const core=k=>k.replace(/^www\\\./,\"\").replace(/:\\d+$/,\"\").toLowerCase().split(\'.\').filter(x=>!stop.has(x)).join(\'.\').replace(/\\.[^.]+$/,\"\");const arr=entries.map(e=>({key:e[0],core:core(e[0]),val:e[1]}));const parent=new Map();const find=x=>{let r=x;while(parent.get(r)!==undefined){r=parent.get(r);}return r;};const uni=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent.set(rb,ra);};const blocks=new Map();for(const it of arr){const c=(it.core[0]||\'#\');if(!blocks.has(c))blocks.set(c,[]);blocks.get(c).push(it);}for(const block of blocks.values()){for(let i=0;i<block.length;i++){for(let j=i+1;j<block.length;j++){const a=block[i],b=block[j];if(dice(a.core,b.core)>=threshold)uni(a.key,b.key);}}}const groups=new Map();for(const it of arr){const rep=find(it.key)||it.key;const k=(rep===it.key)?rep:[rep,it.key].sort((x,y)=>x.length-y.length)[0];if(!groups.has(k))groups.set(k,{pairs:new Set(),links:new Set()});for(const p of it.val.pairs)groups.get(k).pairs.add(p);for(const L of it.val.links)groups.get(k).links.add(L);}const out=Array.from(groups.entries()).map(e=>[e[0],{pairs:Array.from(e[1].pairs),links:Array.from(e[1].links)}]);postMessage({kind:\'fuzzy-done\',entries:out});}}catch(e){postMessage({kind:\'error\', message:String(e)});}}'
+  'onmessage=ev=>{try{const {kind,payload}=ev.data||{};if(kind===\'parse\'){const {text,aliasesText,options,batchSize}=payload;const lines=text.split(/\\r?\\n/);const aliasMap=parseAliases(aliasesText);const groups=new Map();const buckets={unidentified:[],nocreds:[],badfmt:[]};let raw_lines=lines.length,parsed_pairs=0;for(let i=0;i<lines.length;i++){const raw=lines[i];const line=preclean(raw);if(!line)continue;const found=findUrlOrHost(line);if(!found){buckets.unidentified.push(raw);continue;}const urlStr=synthesize(found.token);const urlObj=normalizeUrl(urlStr);if(!urlObj){buckets.badfmt.push(raw);continue;}let host=urlObj.host.toLowerCase();if(options.stripWWW)host=host.replace(/^www\\\./,\"\");const aliased=aliasMap.get(host)||host;let groupKey=aliased;if(options.mode===\'domain\'){groupKey=options.mergeSubs?registrable(aliased):aliased.replace(/:\\d+$/,\"\");}else{urlObj.hash=\"\";if((urlObj.protocol===\'http:\'&&urlObj.port===\'80\')||(urlObj.protocol===\'https:\'&&urlObj.port===\'443\'))urlObj.port=\"\";groupKey=urlObj.toString().replace(/\\/$/,\"\");}const tail=line.slice(found.iEnd);const [user,pass]=splitCreds(tail);if(!user||!pass){buckets.nocreds.push(raw);}let g=groups.get(groupKey);if(!g){g={pairs:new Set(),links:new Set()};groups.set(groupKey,g);}if(user&&pass){parsed_pairs++;uniqPush(g.pairs,user+\':\'+pass);}uniqPush(g.links,urlObj.toString());if(batchSize&&(i%batchSize===0)){const p=Math.round((i/lines.length)*100);postMessage({kind:\'progress\',p,done:i,total:lines.length});}}postMessage({kind:\'parsed\',groups:Array.from(groups.entries()),buckets,meta:{raw_lines,parsed_pairs}});}else if(kind===\'fuzzy\'){const {entries,threshold}=payload;const stop=new Set([\'login\',\'auth\',\'accounts\',\'account\',\'signin\',\'id\',\'secure\',\'sso\',\'my\',\'app\']);const core=(k)=>{const h=k.replace(/^www\\\./,\"\").replace(/:\\d+$/,\"\").toLowerCase();const r=registrable(h);const parts=r.split(\'.\');const t2=parts.slice(-2).join(\'.\');const tlen=MULTI.has(t2)?2:1;const coreParts=parts.slice(0,Math.max(1,parts.length-tlen)).filter(x=>!stop.has(x));return coreParts.join(\'.\')||r;};const arr=entries.map(e=>({key:e[0],core:core(e[0]),val:e[1]}));const parent=new Map();const find=x=>{let r=x;while(parent.get(r)!==undefined){r=parent.get(r);}return r;};const uni=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent.set(rb,ra);};const blocks=new Map();for(const it of arr){const c=(it.core[0]||\'#\');if(!blocks.has(c))blocks.set(c,[]);blocks.get(c).push(it);}for(const block of blocks.values()){for(let i=0;i<block.length;i++){for(let j=i+1;j<block.length;j++){const a=block[i],b=block[j];if(dice(a.core,b.core)>=threshold)uni(a.key,b.key);}}}const groups=new Map();for(const it of arr){const rep=find(it.key)||it.key;const k=(rep===it.key)?rep:[rep,it.key].sort((x,y)=>x.length-y.length)[0];if(!groups.has(k))groups.set(k,{pairs:new Set(),links:new Set()});for(const p of it.val.pairs)groups.get(k).pairs.add(p);for(const L of it.val.links)groups.get(k).links.add(L);}const out=Array.from(groups.entries()).map(e=>[e[0],{pairs:Array.from(e[1].pairs),links:Array.from(e[1].links)}]);postMessage({kind:\'fuzzy-done\',entries:out});}}catch(e){postMessage({kind:\'error\', message:String(e)});}}'
 ].join('\n');
 
 const workerURL = URL.createObjectURL(new Blob([workerSrc], {type:'text/javascript'}));
@@ -187,6 +204,7 @@ let W; try { W = new Worker(workerURL); } catch(e) { console.error('Worker start
 
 /************** App State **************/
 let STATE = { entries: [], buckets:{unidentified:[],nocreds:[],badfmt:[]}, meta:{raw_lines:0,parsed_pairs:0}, filtered:[], namesOnly:false };
+let TOTAL_PAIRS_CACHE = 1;
 
 /************** Elements **************/
 const IN=$('input'), ALIASES=$('aliases'), ALIASES_WRAP=$('aliasesWrap'), ALIASES_PILL=$('aliasesPill');
@@ -200,7 +218,7 @@ const M_LINES=$('mLines'), M_PAIRS=$('mPairs'), M_GROUPS=$('mGroups'), M_UNID=$(
 const PICKERINFO=$('pickerInfo');
 
 /************** Persistence **************/
-const SETTINGS_KEY='slg-ultra-settings-stable-v2';
+const SETTINGS_KEY='slg-ultra-settings-turbo-v1';
 function loadSettings(){ const s=ls(SETTINGS_KEY)||{}; MODE.value=s.mode||'domain'; MERGE.checked=s.mergeSubs??true; STRIPWWW.checked=s.stripWWW??true; TRIM.checked=s.trimOnly??false; MAXP.checked=s.maxPower??true; FUZZY.checked=s.fuzzyOn??true; FUZZYTH.value=s.fuzzyTh??82; FUZZYVAL.textContent=((s.fuzzyTh??82)/100).toFixed(2); ALIASES.value=s.aliases||''; if(s.aliasesOpen){ ALIASES_WRAP.style.display='block'; ALIASES_PILL.querySelector('input').checked=true; } MAXBADGE.style.display=MAXP.checked?'':'none'; }
 function saveSettings(){ ls(SETTINGS_KEY,{ mode:MODE.value, mergeSubs:MERGE.checked, stripWWW:STRIPWWW.checked, trimOnly:TRIM.checked, maxPower:MAXP.checked, fuzzyOn:FUZZY.checked, fuzzyTh:+FUZZYTH.value, aliases:ALIASES.value, aliasesOpen:ALIASES_PILL.querySelector('input').checked }); }
 loadSettings();
@@ -208,17 +226,14 @@ loadSettings();
 /************** File Open (picker-safe) **************/
 OPENBTN.addEventListener('click', openTextFile);
 async function openTextFile(){
-  // Some environments (iframed/sandbox, insecure contexts) block showOpenFilePicker.
   const secure = window.isSecureContext === true;
   let sandboxed = false; try { sandboxed = (window.top !== window); } catch(_) { sandboxed = true; }
   const pickerSupported = !!(window.showOpenFilePicker);
-
   if (pickerSupported && secure && !sandboxed){
     try{
       const [h] = await window.showOpenFilePicker({multiple:false, types:[{description:'Text files', accept:{'text/plain':['.txt']}}]});
       showOverlay('Reading file…'); const file = await h.getFile(); const text = await file.text(); hideOverlay(); IN.value = text; return;
     }catch(err){
-      // Graceful handling: user canceled or blocked permissions → fall back silently
       if(err && (err.name==='AbortError' || err.name==='NotAllowedError' || err.name==='SecurityError')){
         return fallbackFileInput('Picker not available here (blocked). Using classic file dialog.');
       }
@@ -226,19 +241,16 @@ async function openTextFile(){
       return fallbackFileInput('Picker failed. Using classic file dialog.');
     }
   }
-  // Not supported or not secure/sandboxed
   return fallbackFileInput(!secure ? 'Running in a non-secure context; using classic file dialog.' : 'Picker unsupported here; using classic file dialog.');
 }
-
 function fallbackFileInput(message){
   if(message){ PICKERINFO.textContent = message + ' Paste also works.'; PICKERINFO.classList.add('show'); }
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = '.txt,text/plain'; inp.style.display='none';
   document.body.appendChild(inp);
   inp.addEventListener('change', async ()=>{
-    try{
-      const file = inp.files && inp.files[0]; if(!file) return; showOverlay('Reading file…'); const text = await file.text(); hideOverlay(); IN.value = text;
-    }catch(e){ console.error('Read error', e); alert('Could not read the file. Try another file or paste instead.'); }
+    try{ const file = inp.files && inp.files[0]; if(!file) return; showOverlay('Reading file…'); const text = await file.text(); hideOverlay(); IN.value = text; }
+    catch(e){ console.error('Read error', e); alert('Could not read the file. Try another file or paste instead.'); }
     finally{ inp.remove(); }
   }, {once:true});
   inp.click();
@@ -265,10 +277,16 @@ function tickOverlay(p,done){ LD_BAR.style.width=p+'%'; const elapsed=(now()-ove
 
 /************** Grouping **************/
 GROUPBTN.addEventListener('click', runGrouping);
-window.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ runGrouping(); } });
-Q.addEventListener('input', ()=>{ applyFilter(); renderVirtual(); renderNames(); });
+window.addEventListener('keydown', e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ runGrouping(); }
+  if(e.key==='/' && !e.metaKey && !e.ctrlKey){ e.preventDefault(); Q.focus(); }
+  if((e.key==='g'||e.key==='G') && !e.metaKey && !e.ctrlKey){ runGrouping(); }
+  if((e.key==='n'||e.key==='N') && !e.metaKey && !e.ctrlKey){ NAMES_TOGGLE.click(); }
+  if((e.key==='o'||e.key==='O') && !e.metaKey && !e.ctrlKey){ OPENBTN.click(); }
+});
+Q.addEventListener('input', debounce(()=>{ applyFilter(); renderVirtual(); renderNames(); }, 120));
 
-function runGrouping(){ if(!W){ alert('Worker unavailable.'); return; } const text=IN.value||''; const aliasesText=ALIASES.value||''; if(!text.trim()){ alert('Paste or open a .txt first.'); return; } showOverlay('Parsing lines…'); const options={ mode:MODE.value, mergeSubs:MERGE.checked, stripWWW:STRIPWWW.checked }; const batch=MAXP.checked?5000:1000; W.postMessage({kind:'parse', payload:{ text, aliasesText, options, batchSize:batch }}); }
+function runGrouping(){ if(!W){ alert('Worker unavailable.'); return; } const text=IN.value||''; const aliasesText=ALIASES.value||''; if(!text.trim()){ alert('Paste or open a .txt first.'); return; } showOverlay('Parsing lines…'); const options={ mode:MODE.value, mergeSubs:MERGE.checked, stripWWW:STRIPWWW.checked }; const batch=MAXP.checked?8000:1500; W.postMessage({kind:'parse', payload:{ text, aliasesText, options, batchSize:batch }}); }
 
 if(W){
   W.onmessage = ev => {
@@ -277,17 +295,17 @@ if(W){
     if(kind==='progress'){ const {p,done}=ev.data; tickOverlay(p||0, done||0); return; }
     if(kind==='parsed'){
       const {groups,buckets,meta}=ev.data;
-      STATE.entries = groups.map(function(x){return [x[0], {pairs:new Set(x[1].pairs||[]), links:new Set(x[1].links||[])}];});
+      STATE.entries = groups.map(x=>[x[0], {pairs:new Set(x[1].pairs||[]), links:new Set(x[1].links||[])}]);
       STATE.buckets=buckets; STATE.meta=meta;
       if(FUZZY.checked && MODE.value==='domain'){
-        const passable = STATE.entries.map(function(x){return [x[0], {pairs:Array.from(x[1].pairs), links:Array.from(x[1].links)}];});
+        const passable = STATE.entries.map(x=>[x[0], {pairs:Array.from(x[1].pairs), links:Array.from(x[1].links)}]);
         LD_SUB.textContent='Fuzzy merging…';
         W.postMessage({kind:'fuzzy', payload:{ entries: passable, threshold:(+FUZZYTH.value)/100 }});
       } else { finishAndRender(); }
       return;
     }
     if(kind==='fuzzy-done'){
-      STATE.entries = ev.data.entries.map(function(x){return [x[0], {pairs:new Set(x[1].pairs), links:new Set(x[1].links)}];});
+      STATE.entries = ev.data.entries.map(x=>[x[0], {pairs:new Set(x[1].pairs), links:new Set(x[1].links)}]);
       finishAndRender();
     }
   };
@@ -295,19 +313,23 @@ if(W){
 
 function finishAndRender(){ hideOverlay(); applyFilter(); updatePills(); layoutVirtual(); renderVirtual(); renderNames(); }
 function updatePills(){ M_LINES.textContent=STATE.meta.raw_lines; M_PAIRS.textContent=STATE.meta.parsed_pairs; M_GROUPS.textContent=STATE.filtered.length; M_UNID.textContent=STATE.buckets.unidentified.length; M_NOC.textContent=STATE.buckets.nocreds.length; M_BAD.textContent=STATE.buckets.badfmt.length; }
-function applyFilter(){ const q=(Q.value||'').toLowerCase().trim(); const all=STATE.entries; const sorted=function(a){return a.slice().sort(function(x,y){return y[1].pairs.size - x[1].pairs.size;});}; STATE.filtered = !q ? sorted(all) : sorted(all.filter(function(x){return x[0].toLowerCase().includes(q);})); }
+function applyFilter(){ const q=(Q.value||'').toLowerCase().trim(); const all=STATE.entries; const sorted=a=>a.slice().sort((x,y)=> y[1].pairs.size - x[1].pairs.size ); STATE.filtered = !q ? sorted(all) : sorted(all.filter(x=> x[0].toLowerCase().includes(q) )); TOTAL_PAIRS_CACHE = STATE.filtered.reduce((s,x)=>s+x[1].pairs.size,0)||1; }
 
-/************** Virtual list **************/
-const ROW_H=48; let viewportH=0, scrollTop=0; function layoutVirtual(){ viewportH=TABLE.clientHeight; SPACER.style.height=(STATE.filtered.length*ROW_H)+'px'; }
-TABLE.addEventListener('scroll', ()=>{ scrollTop=TABLE.scrollTop; renderVirtual(); }); window.addEventListener('resize', ()=>{ layoutVirtual(); renderVirtual(); });
-function renderVirtual(){ if(STATE.namesOnly) return; const start=Math.floor(scrollTop/ROW_H)-5; const end=Math.ceil((scrollTop+viewportH)/ROW_H)+5; const a=clamp(start,0,Math.max(0,STATE.filtered.length)); const b=clamp(end,0,STATE.filtered.length); TABLE.querySelectorAll('.row-item').forEach(n=>n.remove()); const totalPairs=STATE.filtered.reduce((s,x)=>s+x[1].pairs.size,0)||1; for(let i=a;i<b;i++){ const key=STATE.filtered[i][0]; const val=STATE.filtered[i][1]; const count=val.pairs.size; const pct=(count/totalPairs)*100; const n=document.createElement('div'); n.className='row-item'; n.style.top=(i*ROW_H)+'px'; n.innerHTML='<div class="group" title="'+key+'">'+key+'</div><div style="opacity:.9">'+count+'</div><div class="bar" aria-label="share"><i style="width:'+pct.toFixed(2)+'%"></i></div><div><button class="btn" type="button" data-dl="full" data-i="'+i+'">Download</button></div>'; TABLE.appendChild(n);} }
+/************** Virtual list (pooled rows + RAF) **************/
+const ROW_H=48; let viewportH=0, scrollTop=0; const rowPool=[]; let scheduled=0;
+function layoutVirtual(){ viewportH=TABLE.clientHeight; SPACER.style.height=(STATE.filtered.length*ROW_H)+'px'; }
+TABLE.addEventListener('scroll', throttleRAF(()=>{ scrollTop=TABLE.scrollTop; renderVirtual(); }));
+window.addEventListener('resize', throttleRAF(()=>{ layoutVirtual(); renderVirtual(); }));
+function getRow(){ return rowPool.pop() || document.createElement('div'); }
+function recycle(rows){ for(const n of rows){ n.remove(); rowPool.push(n);} }
+function renderVirtual(){ if(STATE.namesOnly) return; const start=Math.floor(scrollTop/ROW_H)-5; const end=Math.ceil((scrollTop+viewportH)/ROW_H)+5; const a=clamp(start,0,Math.max(0,STATE.filtered.length)); const b=clamp(end,0,STATE.filtered.length); if(scheduled) return; scheduled=1; requestAnimationFrame(()=>{ scheduled=0; const old=[...TABLE.querySelectorAll('.row-item')]; recycle(old); const frag=document.createDocumentFragment(); for(let i=a;i<b;i++){ const key=STATE.filtered[i][0]; const val=STATE.filtered[i][1]; const count=val.pairs.size; const pct=(count/TOTAL_PAIRS_CACHE)*100; const n=getRow(); n.className='row-item'; n.style.top=(i*ROW_H)+'px'; n.innerHTML='<div class="group" title="'+key+'">'+key+'</div><div style="opacity:.9">'+count+'</div><div class="bar" aria-label="share"><i style="width:'+pct.toFixed(2)+'%"></i></div><div><button class="btn" type="button" data-dl="full" data-i="'+i+'">Download</button></div>'; frag.appendChild(n);} TABLE.appendChild(frag); }); }
 TABLE.addEventListener('click', e=>{ const b=e.target.closest('button[data-dl]'); if(!b) return; const i=+b.getAttribute('data-i'); if(!(i>=0)) return; const key=STATE.filtered[i][0]; const val=STATE.filtered[i][1]; const out = TRIM.checked ? Array.from(val.pairs) : Array.from(expandPairsWithLinks(val)); out.sort((a,b)=>a.localeCompare(b)); const safe=key.replace(/[^a-z0-9_.-]+/gi,'_').slice(0,80); saveText(safe+'.txt', out.join('\n')); });
 function* expandPairsWithLinks(val){ const firstLink = (val.links.values().next().value)||''; for(const p of val.pairs){ yield firstLink+':'+p; } }
 
-function renderNames(){ if(!STATE.namesOnly) return; NLIST.innerHTML=''; const ul=document.createElement('ul'); for(const x of STATE.filtered){ const li=document.createElement('li'); li.textContent=x[0]; ul.appendChild(li);} NLIST.replaceChildren(ul); }
+function renderNames(){ if(!STATE.namesOnly) return; const ul=document.createElement('ul'); for(const x of STATE.filtered){ const li=document.createElement('li'); li.textContent=x[0]; ul.appendChild(li);} NLIST.replaceChildren(ul); }
 
 /************** Exports **************/
-CSVBTN.addEventListener('click', ()=>{ if(!STATE.filtered.length) return alert('No results yet. Click Group first.'); const total=STATE.filtered.reduce((s,x)=>s+x[1].pairs.size,0)||1; let csv='group,count,percent\n'; for(const x of STATE.filtered){ const k=x[0], c=x[1].pairs.size, pct=(c/total)*100; csv += (/[",\n]/.test(k)?'"'+k.replace(/"/g,'""')+'"':k)+','+c+','+pct.toFixed(2)+'\n'; } saveText('summary.csv', csv); });
+CSVBTN.addEventListener('click', ()=>{ if(!STATE.filtered.length) return alert('No results yet. Click Group first.'); let csv='group,count,percent\n'; for(const x of STATE.filtered){ const k=x[0], c=x[1].pairs.size, pct=(c/TOTAL_PAIRS_CACHE)*100; csv += (/[",\n]/.test(k)?'"'+k.replace(/"/g,'""')+'"':k)+','+c+','+pct.toFixed(2)+'\n'; } saveText('summary.csv', csv); });
 JSONBTN.addEventListener('click', ()=>{ if(!STATE.filtered.length) return alert('No results yet. Click Group first.'); const groups=STATE.filtered.map(x=>({key:x[0],count:x[1].pairs.size})); const out={parsed_pairs:STATE.meta.parsed_pairs, raw_lines:STATE.meta.raw_lines, groups}; saveJSON('summary.json', out); });
 UNIDBTN.addEventListener('click', ()=> saveText('unidentified.txt', STATE.buckets.unidentified.join('\n')));
 NOCBTN.addEventListener('click', ()=> saveText('noCreds.txt', STATE.buckets.nocreds.join('\n')));
@@ -329,28 +351,21 @@ $('loadTests').addEventListener('click', ()=>{
     'example.com/path):john:doe'
   ].join('\n');
 });
-
-// ADDITIONAL tests focusing on URL/colon normalization & picker-independent behavior
 $('loadMoreTests').addEventListener('click', ()=>{
   IN.value = [
-    // Unicode fullwidth colon between user/pass and look-alike colon in URL
     'https://login.example.com/path：eve：sekret',
-    // Port must be preserved as port, not treated as creds
     'http://demo.example.org:8080/landing : bob : s3cret',
-    // Trailing punctuation right after URL
     'https://shop.example.com/login),.:! : ann : 1234',
-    // Bare domain + path without scheme
     'id.example.co.nz/account:root:toor',
-    // IDNA/Unicode host provided in punycode, creds with spaces
     'https://xn--bcher-kva.de/portal:üser:pä ss',
-    // Colon-rich passwords
     'secure.bank.example/auth : alice : p:a:s:s:w:o:r:d',
-    // No URL at all
     'hello world not a url',
-    // Look‑alike spaces & zero‑width
     'm y​.site.com/login : u : p',
-    // Names-only view safety (no effect on parsing)
     'www.netflix.com/login:john:doe',
+    // Additional perf/merge checks
+    'login.shop.example.co.uk:alice:pass123',
+    'https://site.com:443/login:john:doe',
+    'http://site.com:80/login:jane:doe'
   ].join('\n');
 });
 

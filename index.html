@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Smart Link Grouper — Ultra (Turbo | Anim + Perf)</title>
+<title>Smart Link Grouper — Ultra (Picker‑Safe, Worker‑Safe)</title>
 <style>
   :root{
     --bg:#07120e; --bg2:#0a0f0d; --panel:#0f1714; --ink:#eaf4ee; --muted:#a9c0b4;
@@ -160,7 +160,7 @@
   </div>
 
 <script>
-/************** Minimal helpers **************/
+/************** Helpers **************/
 function $(id){ return document.getElementById(id); }
 function ls(k,v){ if(v===undefined) return JSON.parse(localStorage.getItem(k)||'null'); localStorage.setItem(k, JSON.stringify(v)); }
 function now(){ return performance.now(); }
@@ -168,38 +168,92 @@ function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 function debounce(fn,ms){ let t; return function(){ const a=arguments, ctx=this; clearTimeout(t); t=setTimeout(()=>fn.apply(ctx,a),ms); } }
 function throttleRAF(fn){ let p=0; return (...a)=>{ if(p) return; p=1; requestAnimationFrame(()=>{ p=0; fn(...a); }); } }
 
-/************** Multi‑TLD & Dice **************/
+/************** Multi‑TLD (ASCII only in worker too) **************/
 const MULTI_TLDS = ['co.uk','org.uk','ac.uk','gov.uk','sch.uk','ltd.uk','plc.uk','co.jp','ne.jp','or.jp','go.jp','ac.jp','ad.jp','ed.jp','com.au','net.au','org.au','edu.au','gov.au','com.br','net.br','org.br','com.ph','net.ph','org.ph','gov.ph','edu.ph','co.nz','org.nz','govt.nz','ac.nz','com.tr','gen.tr','org.tr'];
-function dice(a,b){ if(a===b) return 1; if(!a||!b) return 0; const bg=s=>{const x=[]; for(let i=0;i<s.length-1;i++) x.push(s.slice(i,i+2)); return x;}; const A=bg(a), B=bg(b); const map=new Map(); for(const k of A) map.set(k,(map.get(k)||0)+1); let inter=0; for(const k of B){ const v=map.get(k)||0; if(v>0){ inter++; map.set(k,v-1);} } return (2*inter)/(A.length+B.length); }
 
 /************** Save helpers **************/
 function saveText(name, text){ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),5000); }
 function saveJSON(name, obj){ saveText(name, JSON.stringify(obj,null,2)); }
 
-/************** Inline Worker (safe string) **************/
-const workerSrc = [
-  'const MULTI=new Set(', JSON.stringify(MULTI_TLDS), ');',
-  'const TRAIL=/[),.;:!?}\\]>’"\\’]+$/;',
-  'const URL_RX=/https?:\\/\\/\\S+/i;',
-  'const DOMAIN_ANYWHERE_RX=/\\b([a-z0-9-]+(?:\\.[a-z0-9-]+)+)(?:\\/[\\S^:]*)?/i;',
-  'const ZERO_WIDTH=/[\\u200B-\\u200D\\uFEFF\\u2060]/g;',
-  'const CONTROLS=/[\\u0000-\\u001F\\u007F]/g;',
-  'function normalizeSpaces(s){return s.replace(/[\\u00A0\\u1680\\u180E\\u2000-\\u200A\\u202F\\u205F\\u3000]/g,\' \');}',
-  'function normalizeColons(s){return s.replace(/[\\u2236\\uFF1A\\uFE55]/g,\':\');}',
-  'function preclean(line){if(!line)return \"\";return normalizeSpaces(normalizeColons(line.replace(ZERO_WIDTH,\"\").replace(CONTROLS,\"\"))).trim();}',
-  'function synthesize(tok){return /^https?:\\/\\//i.test(tok)?tok:\'https://\'+tok;}',
-  // registrable: last 3 labels when t2 is multi-TLD, else last 2 labels
-  'function registrable(host){host=(host||\"\").replace(/\\.$/,\"\").replace(/:\\d+$/,\"\").toLowerCase();const p=host.split(\'.\').filter(Boolean);if(p.length<=2)return host.replace(/^www\\\./,\"\");const t2=p.slice(-2).join(\'.\');if(MULTI.has(t2))return p.slice(-3).join(\'.\');return p.slice(-2).join(\'.\');}',
-  'function parseAliases(text){const lines=(text||\"\").split(\"\n\").map(s=>s.trim()).filter(Boolean);const map=new Map();for(const line of lines){const m=line.split(\'=>\');if(m.length<2)continue;const canon=m[0].trim().toLowerCase();const alts=m[1].split(\'|\').map(s=>s.trim().toLowerCase()).filter(Boolean);map.set(canon,canon);for(const a of alts)map.set(a,canon);}return map;}',
-  'function stopBeforeUser(m,full){const start=m.index;let end=start+m[0].length;const seg=full.slice(start,end);const scheme=seg.indexOf(\'://\');const scan=scheme>=0?scheme+3:0;for(let i=scan;i<seg.length;i++){if(seg[i]!==\':\')continue;const ahead=seg.slice(i);const port=ahead.match(/^:(\\d{1,5})(?:[\\/?#]|$)/);if(port){i+=port[0].length-1;continue;}const cred=ahead.match(/^:([^\\s:\\/][^:\\s]*)?:/);if(cred){end=start+i;break;}}while(end>start&&TRAIL.test(full[end-1]))end--;return {start,end};}',
-  'function findUrlOrHost(line){const m=URL_RX.exec(line);if(m){const r=stopBeforeUser(m,line);return {token:line.slice(r.start,r.end),iStart:r.start,iEnd:r.end,hasScheme:true};}const d=DOMAIN_ANYWHERE_RX.exec(line);if(d){let tok=d[0];tok=tok.replace(TRAIL,\"\");return {token:tok,iStart:d.index,iEnd:d.index+tok.length,hasScheme:false};}return null;}',
-  'function splitCreds(tail){let t=tail.trim().replace(/^([\\s|:;,_\\-—•·])+/,\"\");if(!t)return [null,null];const i=t.indexOf(\':\');if(i===-1)return [t.trim()||null,null];const user=t.slice(0,i).trim();const pass=t.slice(i+1).trim();return [user||null,pass||null];}',
-  'function normalizeUrl(u){try{return new URL(u);}catch{return null}}',
-  'function uniqPush(set,key){if(!set.has(key))set.add(key);}',
-  'onmessage=ev=>{try{const {kind,payload}=ev.data||{};if(kind===\'parse\'){const {text,aliasesText,options,batchSize}=payload;const lines=text.split(/\\r?\\n/);const aliasMap=parseAliases(aliasesText);const groups=new Map();const buckets={unidentified:[],nocreds:[],badfmt:[]};let raw_lines=lines.length,parsed_pairs=0;for(let i=0;i<lines.length;i++){const raw=lines[i];const line=preclean(raw);if(!line)continue;const found=findUrlOrHost(line);if(!found){buckets.unidentified.push(raw);continue;}const urlStr=synthesize(found.token);const urlObj=normalizeUrl(urlStr);if(!urlObj){buckets.badfmt.push(raw);continue;}let host=urlObj.host.toLowerCase();if(options.stripWWW)host=host.replace(/^www\\\./,\"\");const aliased=aliasMap.get(host)||host;let groupKey=aliased;if(options.mode===\'domain\'){groupKey=options.mergeSubs?registrable(aliased):aliased.replace(/:\\d+$/,\"\");}else{urlObj.hash=\"\";if((urlObj.protocol===\'http:\'&&urlObj.port===\'80\')||(urlObj.protocol===\'https:\'&&urlObj.port===\'443\'))urlObj.port=\"\";groupKey=urlObj.toString().replace(/\\/$/,\"\");}const tail=line.slice(found.iEnd);const [user,pass]=splitCreds(tail);if(!user||!pass){buckets.nocreds.push(raw);}let g=groups.get(groupKey);if(!g){g={pairs:new Set(),links:new Set()};groups.set(groupKey,g);}if(user&&pass){parsed_pairs++;uniqPush(g.pairs,user+\':\'+pass);}uniqPush(g.links,urlObj.toString());if(batchSize&&(i%batchSize===0)){const p=Math.round((i/lines.length)*100);postMessage({kind:\'progress\',p,done:i,total:lines.length});}}postMessage({kind:\'parsed\',groups:Array.from(groups.entries()),buckets,meta:{raw_lines,parsed_pairs}});}else if(kind===\'fuzzy\'){const {entries,threshold}=payload;const stop=new Set([\'login\',\'auth\',\'accounts\',\'account\',\'signin\',\'id\',\'secure\',\'sso\',\'my\',\'app\']);const core=(k)=>{const h=k.replace(/^www\\\./,\"\").replace(/:\\d+$/,\"\").toLowerCase();const r=registrable(h);const parts=r.split(\'.\');const t2=parts.slice(-2).join(\'.\');const tlen=MULTI.has(t2)?2:1;const coreParts=parts.slice(0,Math.max(1,parts.length-tlen)).filter(x=>!stop.has(x));return coreParts.join(\'.\')||r;};const arr=entries.map(e=>({key:e[0],core:core(e[0]),val:e[1]}));const parent=new Map();const find=x=>{let r=x;while(parent.get(r)!==undefined){r=parent.get(r);}return r;};const uni=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent.set(rb,ra);};const blocks=new Map();for(const it of arr){const c=(it.core[0]||\'#\');if(!blocks.has(c))blocks.set(c,[]);blocks.get(c).push(it);}for(const block of blocks.values()){for(let i=0;i<block.length;i++){for(let j=i+1;j<block.length;j++){const a=block[i],b=block[j];if(dice(a.core,b.core)>=threshold)uni(a.key,b.key);}}}const groups=new Map();for(const it of arr){const rep=find(it.key)||it.key;const k=(rep===it.key)?rep:[rep,it.key].sort((x,y)=>x.length-y.length)[0];if(!groups.has(k))groups.set(k,{pairs:new Set(),links:new Set()});for(const p of it.val.pairs)groups.get(k).pairs.add(p);for(const L of it.val.links)groups.get(k).links.add(L);}const out=Array.from(groups.entries()).map(e=>[e[0],{pairs:Array.from(e[1].pairs),links:Array.from(e[1].links)}]);postMessage({kind:\'fuzzy-done\',entries:out});}}catch(e){postMessage({kind:\'error\', message:String(e)});}}'
-].join('\n');
+/************** Inline Worker (built via function.toString to avoid escaping bugs) **************/
+function workerMain(){
+  // Everything below must be pure ASCII to avoid "Invalid or unexpected token".
+  const MULTI = new Set(%MULTI_ARRAY%);
+  const TRAIL = /[),.;:!?}\\]>\"']+$/;
+  const URL_RX = /https?:\/\/\S+/i;
+  const DOMAIN_ANYWHERE_RX = /\b([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:\/[\S^:]*)?/i;
+  const ZERO_WIDTH = /[\u200B-\u200D\uFEFF\u2060]/g;
+  const CONTROLS = /[\u0000-\u001F\u007F]/g;
+  function dice(a,b){ if(a===b) return 1; if(!a||!b) return 0; function bg(s){const x=[]; for(let i=0;i<s.length-1;i++) x.push(s.slice(i,i+2)); return x;} const A=bg(a),B=bg(b); const m=new Map(); for(const k of A) m.set(k,(m.get(k)||0)+1); let inter=0; for(const k of B){ const v=m.get(k)||0; if(v>0){ inter++; m.set(k,v-1);} } return (2*inter)/(A.length+B.length); }
+  function normalizeSpaces(s){ return s.replace(/[\u00A0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]/g,' '); }
+  function normalizeColons(s){ return s.replace(/[\u2236\uFF1A\uFE55]/g,':'); }
+  function preclean(line){ if(!line) return ''; return normalizeSpaces(normalizeColons(line.replace(ZERO_WIDTH,'').replace(CONTROLS,''))).trim(); }
+  function synthesize(tok){ return /^https?:\/\//i.test(tok)?tok:'https://'+tok; }
+  function registrable(host){ host=(host||'').replace(/\.$/,'').replace(/:\d+$/,'').toLowerCase(); const p=host.split('.').filter(Boolean); if(p.length<=2) return host.replace(/^www\./,''); const t2=p.slice(-2).join('.'); if(MULTI.has(t2)) return p.slice(-3).join('.'); return p.slice(-2).join('.'); }
+  function parseAliases(text){ const lines=(text||'').split('\n').map(s=>s.trim()).filter(Boolean); const map=new Map(); for(const line of lines){ const m=line.split('=>'); if(m.length<2) continue; const canon=m[0].trim().toLowerCase(); const alts=m[1].split('|').map(s=>s.trim().toLowerCase()).filter(Boolean); map.set(canon,canon); for(const a of alts) map.set(a,canon);} return map; }
+  function stopBeforeUser(m,full){ const start=m.index; let end=start+m[0].length; const seg=full.slice(start,end); const scheme=seg.indexOf('://'); const scan=scheme>=0?scheme+3:0; for(let i=scan;i<seg.length;i++){ if(seg[i]!==':') continue; const ahead=seg.slice(i); const port=ahead.match(/^:(\d{1,5})(?:[\/?#]|$)/); if(port){ i+=port[0].length-1; continue; } const cred=ahead.match(/^:([^\s:\/][^:\s]*)?:/); if(cred){ end=start+i; break; } } while(end>start && TRAIL.test(full[end-1])) end--; return {start,end}; }
+  function findUrlOrHost(line){ const m=URL_RX.exec(line); if(m){ const r=stopBeforeUser(m,line); return {token:line.slice(r.start,r.end),iStart:r.start,iEnd:r.end,hasScheme:true}; } const d=DOMAIN_ANYWHERE_RX.exec(line); if(d){ let tok=d[0]; tok=tok.replace(TRAIL,''); return {token:tok,iStart:d.index,iEnd:d.index+tok.length,hasScheme:false}; } return null; }
+  function splitCreds(tail){ let t=tail.trim().replace(/^([\s|:;,_\-—•·])+/, ''); if(!t) return [null,null]; const i=t.indexOf(':'); if(i===-1) return [t.trim()||null,null]; const user=t.slice(0,i).trim(); const pass=t.slice(i+1).trim(); return [user||null,pass||null]; }
+  function normalizeUrl(u){ try{ return new URL(u); } catch{ return null; } }
+  function uniqPush(set,key){ if(!set.has(key)) set.add(key); }
 
-const workerURL = URL.createObjectURL(new Blob([workerSrc], {type:'text/javascript'}));
+  onmessage = function(ev){
+    try{
+      const data = ev.data||{}; const kind = data.kind;
+      if(kind==='parse'){
+        const text = data.payload.text||''; const aliasesText = data.payload.aliasesText||''; const options = data.payload.options||{}; const batchSize = data.payload.batchSize||1000;
+        const lines = text.split(/\r?\n/); const aliasMap = parseAliases(aliasesText);
+        const groups = new Map(); const buckets={unidentified:[],nocreds:[],badfmt:[]};
+        let raw_lines=lines.length, parsed_pairs=0;
+        for(let i=0;i<lines.length;i++){
+          const raw=lines[i]; const line=preclean(raw); if(!line) continue;
+          const found=findUrlOrHost(line); if(!found){ buckets.unidentified.push(raw); continue; }
+          const urlStr=synthesize(found.token); const urlObj=normalizeUrl(urlStr); if(!urlObj){ buckets.badfmt.push(raw); continue; }
+          let host=urlObj.host.toLowerCase(); if(options.stripWWW) host=host.replace(/^www\./,'');
+          const aliased=aliasMap.get(host)||host; let groupKey=aliased;
+          if(options.mode==='domain'){
+            groupKey = options.mergeSubs ? registrable(aliased) : aliased.replace(/:\d+$/,'');
+          }else{
+            urlObj.hash=''; if((urlObj.protocol==='http:' && urlObj.port==='80') || (urlObj.protocol==='https:' && urlObj.port==='443')) urlObj.port='';
+            groupKey = urlObj.toString().replace(/\/$/,'');
+          }
+          const tail=line.slice(found.iEnd); const up=splitCreds(tail); const user=up[0], pass=up[1];
+          if(!user||!pass){ buckets.nocreds.push(raw); }
+          let g=groups.get(groupKey); if(!g){ g={pairs:new Set(),links:new Set()}; groups.set(groupKey,g); }
+          if(user&&pass){ parsed_pairs++; uniqPush(g.pairs, user+':'+pass); }
+          uniqPush(g.links, urlObj.toString());
+          if(batchSize && (i%batchSize===0)){
+            const p=Math.round((i/lines.length)*100); postMessage({kind:'progress', p:p, done:i, total:lines.length});
+          }
+        }
+        postMessage({kind:'parsed', groups:Array.from(groups.entries()).map(e=>[e[0],{pairs:Array.from(e[1].pairs),links:Array.from(e[1].links)}]), buckets:buckets, meta:{raw_lines:raw_lines, parsed_pairs:parsed_pairs}});
+      } else if(kind==='fuzzy'){
+        const entries = data.payload.entries||[]; const threshold = data.payload.threshold||0.82;
+        const stop = new Set(['login','auth','accounts','account','signin','id','secure','sso','my','app']);
+        function core(k){ const h=k.replace(/^www\./,'').replace(/:\d+$/,'').toLowerCase(); const r=registrable(h); const parts=r.split('.'); const t2=parts.slice(-2).join('.'); const tlen = MULTI.has(t2) ? 2 : 1; const coreParts = parts.slice(0, Math.max(1, parts.length - tlen)).filter(x=>!stop.has(x)); return coreParts.join('.') || r; }
+        const arr = entries.map(e=>({key:e[0], core:core(e[0]), val:e[1]}));
+        const parent=new Map(); function find(x){ let r=x; while(parent.get(r)!==undefined){ r=parent.get(r);} return r; }
+        function uni(a,b){ const ra=find(a), rb=find(b); if(ra!==rb) parent.set(rb,ra); }
+        const blocks=new Map(); for(const it of arr){ const c=(it.core[0]||'#'); if(!blocks.has(c)) blocks.set(c,[]); blocks.get(c).push(it); }
+        for(const block of blocks.values()){
+          for(let i=0;i<block.length;i++){
+            for(let j=i+1;j<block.length;j++){
+              const a=block[i], b=block[j]; if(dice(a.core,b.core)>=threshold) uni(a.key,b.key);
+            }
+          }
+        }
+        const outMap=new Map();
+        for(const it of arr){ const rep=find(it.key)||it.key; const k=(rep===it.key)?rep:[rep,it.key].sort((x,y)=>x.length-y.length)[0]; if(!outMap.has(k)) outMap.set(k,{pairs:new Set(),links:new Set()}); for(const p of it.val.pairs) outMap.get(k).pairs.add(p); for(const L of it.val.links) outMap.get(k).links.add(L); }
+        const out = Array.from(outMap.entries()).map(e=>[e[0],{pairs:Array.from(e[1].pairs),links:Array.from(e[1].links)}]);
+        postMessage({kind:'fuzzy-done', entries:out});
+      }
+    }catch(e){ postMessage({kind:'error', message:String(e&&e.message?e.message:e)}); }
+  };
+}
+
+// Build worker source from function string, inject MULTI array in-place, then Blob
+const workerSource = '(' + workerMain.toString().replace('%MULTI_ARRAY%', JSON.stringify(MULTI_TLDS)) + ')()';
+const workerURL = URL.createObjectURL(new Blob([workerSource], {type:'text/javascript'}));
 let W; try { W = new Worker(workerURL); } catch(e) { console.error('Worker start failed', e); alert('Web Worker failed to start. Your browser may block blob workers.'); }
 
 /************** App State **************/
@@ -218,7 +272,7 @@ const M_LINES=$('mLines'), M_PAIRS=$('mPairs'), M_GROUPS=$('mGroups'), M_UNID=$(
 const PICKERINFO=$('pickerInfo');
 
 /************** Persistence **************/
-const SETTINGS_KEY='slg-ultra-settings-turbo-v1';
+const SETTINGS_KEY='slg-ultra-settings-workerSafe-v1';
 function loadSettings(){ const s=ls(SETTINGS_KEY)||{}; MODE.value=s.mode||'domain'; MERGE.checked=s.mergeSubs??true; STRIPWWW.checked=s.stripWWW??true; TRIM.checked=s.trimOnly??false; MAXP.checked=s.maxPower??true; FUZZY.checked=s.fuzzyOn??true; FUZZYTH.value=s.fuzzyTh??82; FUZZYVAL.textContent=((s.fuzzyTh??82)/100).toFixed(2); ALIASES.value=s.aliases||''; if(s.aliasesOpen){ ALIASES_WRAP.style.display='block'; ALIASES_PILL.querySelector('input').checked=true; } MAXBADGE.style.display=MAXP.checked?'':'none'; }
 function saveSettings(){ ls(SETTINGS_KEY,{ mode:MODE.value, mergeSubs:MERGE.checked, stripWWW:STRIPWWW.checked, trimOnly:TRIM.checked, maxPower:MAXP.checked, fuzzyOn:FUZZY.checked, fuzzyTh:+FUZZYTH.value, aliases:ALIASES.value, aliasesOpen:ALIASES_PILL.querySelector('input').checked }); }
 loadSettings();
@@ -271,9 +325,7 @@ ALIASES.addEventListener('input', saveSettings);
 NAMES_TOGGLE.addEventListener('click', ()=>{ const on=NAMES_TOGGLE.getAttribute('data-on')==='true'?false:true; NAMES_TOGGLE.setAttribute('data-on',String(on)); STATE.namesOnly=on; TABLE.style.display=on?'none':''; NAMES.style.display=on?'':''; renderNames(); });
 
 /************** Overlay **************/
-let overlayStart=0; function showOverlay(sub){ OVERLAY.classList.add('show'); OVERLAY.setAttribute('aria-hidden','false'); LD_SUB.textContent=sub||'Working…'; LD_BAR.style.width='0%'; overlayStart=now(); tickOverlay(0,0); }
-function hideOverlay(){ OVERLAY.classList.remove('show'); OVERLAY.setAttribute('aria-hidden','true'); }
-function tickOverlay(p,done){ LD_BAR.style.width=p+'%'; const elapsed=(now()-overlayStart)/1000; let eta=''; if(p>0&&done>0){ const rate=elapsed/done; const total=rate*(100/(p||0.0001)); eta=` • ETA ${(total-elapsed).toFixed(1)}s`; } LD_META.textContent=`${p}% • ${elapsed.toFixed(1)}s${eta}`; }
+let overlayStart=0, overlayVisible=false, overlayLastDone=0; function showOverlay(sub){ if(overlayVisible){ LD_SUB.textContent=sub||'Working…'; return; } overlayVisible=true; OVERLAY.classList.add('show'); OVERLAY.setAttribute('aria-hidden','false'); LD_SUB.textContent=sub||'Working…'; LD_BAR.style.width='0%'; overlayStart=now(); overlayLastDone=0; tickOverlay(0,0); } function tickOverlay(p,done){ const pct = clamp(Math.floor(p||0), 0, 100); overlayLastDone = done||overlayLastDone||0; LD_BAR.style.width=pct+'%'; const elapsed=(now()-overlayStart)/1000; let eta=''; if(pct>0 && overlayLastDone>0){ const rate=elapsed/overlayLastDone; const total = rate * (100/(pct||0.0001)); const remain = Math.max(0, total - elapsed); eta = ' • ETA ' + remain.toFixed(1) + 's'; } LD_META.textContent = pct+'% • '+elapsed.toFixed(1)+'s'+eta; } function completeOverlay(immediate){ tickOverlay(100, overlayLastDone||1); const close = ()=>{ OVERLAY.classList.remove('show'); OVERLAY.setAttribute('aria-hidden','true'); overlayVisible=false; }; if(immediate){ close(); } else { setTimeout(close, 300); } } function hideOverlay(){ completeOverlay(true); } LD_META.textContent=p+'% • '+elapsed.toFixed(1)+'s'+eta; }
 
 /************** Grouping **************/
 GROUPBTN.addEventListener('click', runGrouping);
@@ -292,11 +344,10 @@ if(W){
   W.onmessage = ev => {
     const kind = ev.data && ev.data.kind; if(!kind) return;
     if(kind==='error'){ console.error('Worker error:', ev.data.message); hideOverlay(); alert('Parser error: '+ev.data.message); return; }
-    if(kind==='progress'){ const {p,done}=ev.data; tickOverlay(p||0, done||0); return; }
+    if(kind==='progress'){ const p=ev.data.p||0, done=ev.data.done||0; tickOverlay(p, done); return; }
     if(kind==='parsed'){
-      const {groups,buckets,meta}=ev.data;
-      STATE.entries = groups.map(x=>[x[0], {pairs:new Set(x[1].pairs||[]), links:new Set(x[1].links||[])}]);
-      STATE.buckets=buckets; STATE.meta=meta;
+      const groups = ev.data.groups.map(x=>[x[0], {pairs:new Set(x[1].pairs||[]), links:new Set(x[1].links||[])}]);
+      STATE.entries = groups; STATE.buckets = ev.data.buckets; STATE.meta = ev.data.meta;
       if(FUZZY.checked && MODE.value==='domain'){
         const passable = STATE.entries.map(x=>[x[0], {pairs:Array.from(x[1].pairs), links:Array.from(x[1].links)}]);
         LD_SUB.textContent='Fuzzy merging…';
@@ -311,7 +362,7 @@ if(W){
   };
 }
 
-function finishAndRender(){ hideOverlay(); applyFilter(); updatePills(); layoutVirtual(); renderVirtual(); renderNames(); }
+function finishAndRender(){ applyFilter(); updatePills(); layoutVirtual(); renderVirtual(); renderNames(); tickOverlay(100, STATE.meta.raw_lines||0); completeOverlay(false); }
 function updatePills(){ M_LINES.textContent=STATE.meta.raw_lines; M_PAIRS.textContent=STATE.meta.parsed_pairs; M_GROUPS.textContent=STATE.filtered.length; M_UNID.textContent=STATE.buckets.unidentified.length; M_NOC.textContent=STATE.buckets.nocreds.length; M_BAD.textContent=STATE.buckets.badfmt.length; }
 function applyFilter(){ const q=(Q.value||'').toLowerCase().trim(); const all=STATE.entries; const sorted=a=>a.slice().sort((x,y)=> y[1].pairs.size - x[1].pairs.size ); STATE.filtered = !q ? sorted(all) : sorted(all.filter(x=> x[0].toLowerCase().includes(q) )); TOTAL_PAIRS_CACHE = STATE.filtered.reduce((s,x)=>s+x[1].pairs.size,0)||1; }
 
@@ -365,12 +416,15 @@ $('loadMoreTests').addEventListener('click', ()=>{
     // Additional perf/merge checks
     'login.shop.example.co.uk:alice:pass123',
     'https://site.com:443/login:john:doe',
-    'http://site.com:80/login:jane:doe'
+    'http://site.com:80/login:jane:doe',
+    // New: bare domain with port and trailing dot
+    'example.com:8080/path:root:secret',
+    'foo.bar.com.:u:p'
   ].join('\n');
 });
 
 /************** Init **************/
-(function init(){ const h=TABLE.clientHeight; if(!h){ setTimeout(init,60); return; } layoutVirtual(); })();
+(function init(){ const h=$('tableWrap').clientHeight; if(!h){ setTimeout(init,60); return; } layoutVirtual(); })();
 </script>
 </body>
 </html>

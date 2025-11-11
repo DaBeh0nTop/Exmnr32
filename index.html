@@ -97,6 +97,7 @@
           <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
             <button id="loadTests" class="btn" type="button">Load Edge‑Case Tests</button>
             <button id="loadMoreTests" class="btn" type="button">Load More Edge‑Cases</button>
+            <button id="loadTLDTests" class="btn" type="button">Load TLD Stress</button>
           </div>
         </div>
       </div>
@@ -175,16 +176,16 @@ const MULTI_TLDS = ['co.uk','org.uk','ac.uk','gov.uk','sch.uk','ltd.uk','plc.uk'
 function saveText(name, text){ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(url),5000); }
 function saveJSON(name, obj){ saveText(name, JSON.stringify(obj,null,2)); }
 
-/************** Inline Worker (built via function.toString to avoid escaping bugs) **************/
-function workerMain(){
-  // Everything below must be pure ASCII to avoid "Invalid or unexpected token".
-  const MULTI = new Set(%MULTI_ARRAY%);
+/************** Inline Worker (parameterized to avoid placeholders) **************/
+function workerMain(MULTI_TLDS_IN){
+  // Everything below must be pure ASCII to avoid tokenizer issues.
+  const MULTI = new Set(MULTI_TLDS_IN);
   const TRAIL = /[),.;:!?}\\]>\"']+$/;
   const URL_RX = /https?:\/\/\S+/i;
   const DOMAIN_ANYWHERE_RX = /\b([a-z0-9-]+(?:\.[a-z0-9-]+)+)(?:\/[\S^:]*)?/i;
   const ZERO_WIDTH = /[\u200B-\u200D\uFEFF\u2060]/g;
   const CONTROLS = /[\u0000-\u001F\u007F]/g;
-  function dice(a,b){ if(a===b) return 1; if(!a||!b) return 0; function bg(s){const x=[]; for(let i=0;i<s.length-1;i++) x.push(s.slice(i,i+2)); return x;} const A=bg(a),B=bg(b); const m=new Map(); for(const k of A) m.set(k,(m.get(k)||0)+1); let inter=0; for(const k of B){ const v=m.get(k)||0; if(v>0){ inter++; m.set(k,v-1);} } return (2*inter)/(A.length+B.length); }
+  function dice(a,b){ if(a===b) return 1; if(!a||!b) return 0; function bg(s){const x=[]; for(let i=0;i<s.length-1;i++) x.push(s.slice(i,i+2)); return x;} const A=bg(a),B=bg(b); const m=new Map(); for(const k of A) m.set(k,(m.get(k)||0)+1); let inter=0; for(const k of B){ const v=m.get(k)||0; if(v>0){ inter++; m.set(k,v-1);} } return (2*inter)/(A.length+B.length||1); }
   function normalizeSpaces(s){ return s.replace(/[\u00A0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]/g,' '); }
   function normalizeColons(s){ return s.replace(/[\u2236\uFF1A\uFE55]/g,':'); }
   function preclean(line){ if(!line) return ''; return normalizeSpaces(normalizeColons(line.replace(ZERO_WIDTH,'').replace(CONTROLS,''))).trim(); }
@@ -251,8 +252,8 @@ function workerMain(){
   };
 }
 
-// Build worker source from function string, inject MULTI array in-place, then Blob
-const workerSource = '(' + workerMain.toString().replace('%MULTI_ARRAY%', JSON.stringify(MULTI_TLDS)) + ')()';
+// Build worker source without any string placeholders
+const workerSource = '(' + workerMain.toString() + ')(' + JSON.stringify(MULTI_TLDS) + ')';
 const workerURL = URL.createObjectURL(new Blob([workerSource], {type:'text/javascript'}));
 let W; try { W = new Worker(workerURL); } catch(e) { console.error('Worker start failed', e); alert('Web Worker failed to start. Your browser may block blob workers.'); }
 
@@ -272,7 +273,7 @@ const M_LINES=$('mLines'), M_PAIRS=$('mPairs'), M_GROUPS=$('mGroups'), M_UNID=$(
 const PICKERINFO=$('pickerInfo');
 
 /************** Persistence **************/
-const SETTINGS_KEY='slg-ultra-settings-workerSafe-v1';
+const SETTINGS_KEY='slg-ultra-settings-workerSafe-v2';
 function loadSettings(){ const s=ls(SETTINGS_KEY)||{}; MODE.value=s.mode||'domain'; MERGE.checked=s.mergeSubs??true; STRIPWWW.checked=s.stripWWW??true; TRIM.checked=s.trimOnly??false; MAXP.checked=s.maxPower??true; FUZZY.checked=s.fuzzyOn??true; FUZZYTH.value=s.fuzzyTh??82; FUZZYVAL.textContent=((s.fuzzyTh??82)/100).toFixed(2); ALIASES.value=s.aliases||''; if(s.aliasesOpen){ ALIASES_WRAP.style.display='block'; ALIASES_PILL.querySelector('input').checked=true; } MAXBADGE.style.display=MAXP.checked?'':'none'; }
 function saveSettings(){ ls(SETTINGS_KEY,{ mode:MODE.value, mergeSubs:MERGE.checked, stripWWW:STRIPWWW.checked, trimOnly:TRIM.checked, maxPower:MAXP.checked, fuzzyOn:FUZZY.checked, fuzzyTh:+FUZZYTH.value, aliases:ALIASES.value, aliasesOpen:ALIASES_PILL.querySelector('input').checked }); }
 loadSettings();
@@ -325,7 +326,7 @@ ALIASES.addEventListener('input', saveSettings);
 NAMES_TOGGLE.addEventListener('click', ()=>{ const on=NAMES_TOGGLE.getAttribute('data-on')==='true'?false:true; NAMES_TOGGLE.setAttribute('data-on',String(on)); STATE.namesOnly=on; TABLE.style.display=on?'none':''; NAMES.style.display=on?'':''; renderNames(); });
 
 /************** Overlay **************/
-let overlayStart=0, overlayVisible=false, overlayLastDone=0; function showOverlay(sub){ if(overlayVisible){ LD_SUB.textContent=sub||'Working…'; return; } overlayVisible=true; OVERLAY.classList.add('show'); OVERLAY.setAttribute('aria-hidden','false'); LD_SUB.textContent=sub||'Working…'; LD_BAR.style.width='0%'; overlayStart=now(); overlayLastDone=0; tickOverlay(0,0); } function tickOverlay(p,done){ const pct = clamp(Math.floor(p||0), 0, 100); overlayLastDone = done||overlayLastDone||0; LD_BAR.style.width=pct+'%'; const elapsed=(now()-overlayStart)/1000; let eta=''; if(pct>0 && overlayLastDone>0){ const rate=elapsed/overlayLastDone; const total = rate * (100/(pct||0.0001)); const remain = Math.max(0, total - elapsed); eta = ' • ETA ' + remain.toFixed(1) + 's'; } LD_META.textContent = pct+'% • '+elapsed.toFixed(1)+'s'+eta; } function completeOverlay(immediate){ tickOverlay(100, overlayLastDone||1); const close = ()=>{ OVERLAY.classList.remove('show'); OVERLAY.setAttribute('aria-hidden','true'); overlayVisible=false; }; if(immediate){ close(); } else { setTimeout(close, 300); } } function hideOverlay(){ completeOverlay(true); } LD_META.textContent=p+'% • '+elapsed.toFixed(1)+'s'+eta; }
+let overlayStart=0, overlayVisible=false, overlayLastDone=0; function showOverlay(sub){ if(overlayVisible){ LD_SUB.textContent=sub||'Working…'; return; } overlayVisible=true; OVERLAY.classList.add('show'); OVERLAY.setAttribute('aria-hidden','false'); LD_SUB.textContent=sub||'Working…'; LD_BAR.style.width='0%'; overlayStart=now(); overlayLastDone=0; tickOverlay(0,0); } function tickOverlay(p,done){ const pct = clamp(Math.floor(p||0), 0, 100); overlayLastDone = done||overlayLastDone||0; LD_BAR.style.width=pct+'%'; const elapsed=(now()-overlayStart)/1000; let eta=''; if(pct>0 && overlayLastDone>0){ const rate=elapsed/overlayLastDone; const total = rate * (100/(pct||0.0001)); const remain = Math.max(0, total - elapsed); eta = ' • ETA ' + remain.toFixed(1) + 's'; } LD_META.textContent = pct+'% • '+elapsed.toFixed(1)+'s'+eta; } function completeOverlay(immediate){ tickOverlay(100, overlayLastDone||1); const close = ()=>{ OVERLAY.classList.remove('show'); OVERLAY.setAttribute('aria-hidden','true'); overlayVisible=false; }; if(immediate){ close(); } else { setTimeout(close, 300); } } function hideOverlay(){ completeOverlay(true); }
 
 /************** Grouping **************/
 GROUPBTN.addEventListener('click', runGrouping);
@@ -374,8 +375,7 @@ window.addEventListener('resize', throttleRAF(()=>{ layoutVirtual(); renderVirtu
 function getRow(){ return rowPool.pop() || document.createElement('div'); }
 function recycle(rows){ for(const n of rows){ n.remove(); rowPool.push(n);} }
 function renderVirtual(){ if(STATE.namesOnly) return; const start=Math.floor(scrollTop/ROW_H)-5; const end=Math.ceil((scrollTop+viewportH)/ROW_H)+5; const a=clamp(start,0,Math.max(0,STATE.filtered.length)); const b=clamp(end,0,STATE.filtered.length); if(scheduled) return; scheduled=1; requestAnimationFrame(()=>{ scheduled=0; const old=[...TABLE.querySelectorAll('.row-item')]; recycle(old); const frag=document.createDocumentFragment(); for(let i=a;i<b;i++){ const key=STATE.filtered[i][0]; const val=STATE.filtered[i][1]; const count=val.pairs.size; const pct=(count/TOTAL_PAIRS_CACHE)*100; const n=getRow(); n.className='row-item'; n.style.top=(i*ROW_H)+'px'; n.innerHTML='<div class="group" title="'+key+'">'+key+'</div><div style="opacity:.9">'+count+'</div><div class="bar" aria-label="share"><i style="width:'+pct.toFixed(2)+'%"></i></div><div><button class="btn" type="button" data-dl="full" data-i="'+i+'">Download</button></div>'; frag.appendChild(n);} TABLE.appendChild(frag); }); }
-TABLE.addEventListener('click', e=>{ const b=e.target.closest('button[data-dl]'); if(!b) return; const i=+b.getAttribute('data-i'); if(!(i>=0)) return; const key=STATE.filtered[i][0]; const val=STATE.filtered[i][1]; const out = TRIM.checked ? Array.from(val.pairs) : Array.from(expandPairsWithLinks(val)); out.sort((a,b)=>a.localeCompare(b)); const safe=key.replace(/[^a-z0-9_.-]+/gi,'_').slice(0,80); saveText(safe+'.txt', out.join('\n')); });
-function* expandPairsWithLinks(val){ const firstLink = (val.links.values().next().value)||''; for(const p of val.pairs){ yield firstLink+':'+p; } }
+TABLE.addEventListener('click', e=>{ const b=e.target.closest('button[data-dl]'); if(!b) return; const i=+b.getAttribute('data-i'); if(!(i>=0)) return; const key=STATE.filtered[i][0]; const val=STATE.filtered[i][1]; const firstLink = (val.links.values().next().value)||''; const out = TRIM.checked ? Array.from(val.pairs) : Array.from(val.pairs).map(p=>firstLink+':'+p); out.sort((a,b)=>a.localeCompare(b)); const safe=key.replace(/[^a-z0-9_.-]+/gi,'_').slice(0,80); saveText(safe+'.txt', out.join('\n')); });
 
 function renderNames(){ if(!STATE.namesOnly) return; const ul=document.createElement('ul'); for(const x of STATE.filtered){ const li=document.createElement('li'); li.textContent=x[0]; ul.appendChild(li);} NLIST.replaceChildren(ul); }
 
@@ -413,13 +413,23 @@ $('loadMoreTests').addEventListener('click', ()=>{
     'hello world not a url',
     'm y​.site.com/login : u : p',
     'www.netflix.com/login:john:doe',
-    // Additional perf/merge checks
     'login.shop.example.co.uk:alice:pass123',
     'https://site.com:443/login:john:doe',
     'http://site.com:80/login:jane:doe',
-    // New: bare domain with port and trailing dot
     'example.com:8080/path:root:secret',
     'foo.bar.com.:u:p'
+  ].join('\n');
+});
+$('loadTLDTests').addEventListener('click', ()=>{
+  IN.value = [
+    'a.b.c.d.e.co.uk/path:U:P',
+    'sub.login.service.gov.ph/user:pass',
+    'portal.school.edu.au:alice:pw',
+    'www.govt.nz/acc:root:toor',
+    'foo.bar.gen.tr/login:alpha:beta',
+    'not a url at all',
+    'bare.tld:onlyuser',
+    'https://only.host/just/url'
   ].join('\n');
 });
 
